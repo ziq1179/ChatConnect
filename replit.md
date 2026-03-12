@@ -2,7 +2,7 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Full-stack messaging application with email/password authentication, iMessage-style chat UI, and real-time polling. Designed to be deployable to Render or run locally (no Replit-specific auth).
 
 ## Stack
 
@@ -14,83 +14,132 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Database**: PostgreSQL + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Frontend**: React + Vite + TailwindCSS v4 + Framer Motion
+- **Auth**: Custom email/password with bcrypt + express-session + connect-pg-simple
+- **Build**: esbuild (CJS bundle for server), Vite (frontend)
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
+├── artifacts/
+│   ├── api-server/         # Express API server (port from $PORT)
+│   └── messaging-app/      # React frontend (port from $PORT)
+├── lib/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
+├── scripts/                # Utility scripts
+├── pnpm-workspace.yaml     # pnpm workspace config
 ├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
 ├── tsconfig.json           # Root TS project references
 └── package.json            # Root package with hoisted devDeps
 ```
 
+## Features
+
+- **Email/password auth**: Signup, login, logout with bcrypt password hashing
+- **Session management**: PostgreSQL-backed sessions via connect-pg-simple
+- **Conversations**: Create 1:1 conversations, list with last message preview
+- **Messages**: iMessage-style chat view, 3-second polling for new messages
+- **User search**: Search by name to start new conversations
+- **Responsive UI**: Mobile-friendly sidebar with dark mode design
+
+## Database Schema
+
+Tables: `users`, `conversations`, `conversation_participants`, `messages`, `session` (auto-created by connect-pg-simple)
+
+- `users`: id (UUID), email, passwordHash, firstName, lastName, createdAt
+- `conversations`: id (serial), name (nullable), createdAt, updatedAt
+- `conversation_participants`: conversationId, userId
+- `messages`: id (serial), conversationId, senderId, content, createdAt
+
+## API Endpoints
+
+- `POST /api/auth/signup` — Create account (email, password, firstName, lastName)
+- `POST /api/auth/login` — Login (email, password)
+- `POST /api/auth/logout` — Logout
+- `GET /api/auth/user` — Get current user (returns `{ user: null }` if not logged in)
+- `GET /api/conversations` — List user's conversations with last message preview
+- `POST /api/conversations` — Create conversation (`{ participantIds, name? }`)
+- `GET /api/conversations/:id` — Get conversation details
+- `GET /api/conversations/:id/messages` — List messages (oldest first)
+- `POST /api/conversations/:id/messages` — Send message (`{ content }`)
+- `GET /api/users/search?q=` — Search users by name
+
+## Environment Variables
+
+- `DATABASE_URL` — PostgreSQL connection string (auto-provided by Replit)
+- `SESSION_SECRET` — Secret for express-session (defaults to dev string if not set)
+- `NODE_ENV` — `development` or `production` (affects cookie security)
+- `PORT` — Port for each service (auto-set by Replit per artifact)
+- `BASE_PATH` — URL base path for frontend (auto-set by Replit per artifact)
+
 ## TypeScript & Composite Projects
 
 Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+- **Always typecheck from the root** — run `pnpm run typecheck`
+- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck
+- **Project references** — cross-package imports resolve via project refs
 
 ## Root Scripts
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
+- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
 ## Packages
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+Express 5 API server with session-based auth.
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
+- App setup: `src/app.ts` — mounts CORS, session middleware, auth middleware, routes at `/api`
+- Routes: `src/routes/` — auth.ts, conversations.ts, users.ts, health.ts
+- Middleware: `src/middlewares/authMiddleware.ts` — loads user from session
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- `pnpm --filter @workspace/api-server run build` — production esbuild bundle
+
+### `artifacts/messaging-app` (`@workspace/messaging-app`)
+
+React frontend with iMessage-style chat UI.
+
+- Auth pages: `src/pages/AuthPage.tsx` — login/signup with animated form
+- Main page: `src/pages/Home.tsx` — sidebar + chat area with 3s message polling
+- Components: `src/components/Avatar.tsx`, `src/components/NewChatDialog.tsx`
+- Auth hook: `src/hooks/use-auth.ts` — wraps API client auth hooks
+- Dark theme, purple/violet primary color, Plus Jakarta Sans display font
 
 ### `lib/db` (`@workspace/db`)
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+Database layer using Drizzle ORM with PostgreSQL.
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`)
+- Push schema: `pnpm --filter @workspace/db run push`
+- Force push: `pnpm --filter @workspace/db run push-force`
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
+OpenAPI 3.1 spec (`openapi.yaml`) and Orval config for codegen.
 
 Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
 ### `lib/api-zod` (`@workspace/api-zod`)
 
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
+Generated Zod schemas from the OpenAPI spec. Used by `api-server` for validation.
 
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+Generated React Query hooks and fetch client from the OpenAPI spec.
 
 ### `scripts` (`@workspace/scripts`)
 
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+Utility scripts package. Run via `pnpm --filter @workspace/scripts run <script>`.
+
+## Deployment (Render)
+
+Required env vars: `DATABASE_URL`, `SESSION_SECRET` (random string), `NODE_ENV=production`
+- API server: `pnpm --filter @workspace/api-server run build && node artifacts/api-server/dist/index.cjs`
+- Frontend: `pnpm --filter @workspace/messaging-app run build`, serve `artifacts/messaging-app/dist/public`

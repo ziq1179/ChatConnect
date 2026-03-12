@@ -1,0 +1,18 @@
+packages:
+  "framer-motion": "Smooth animations for page transitions, modals, and chat bubbles"
+  "date-fns": "For human-readable relative timestamps in chat"
+  "lucide-react": "Beautiful consistent iconography"
+  "clsx": "For conditional tailwind class merging"
+  "tailwind-merge": "For merging tailwind classes safely"
+  "react-hook-form": "For form state management"
+  "@hookform/resolvers": "For zod validation in forms"
+
+images:
+  - path: "artifacts/messaging-app/public/images/login-bg.png"
+    description: "Abstract minimal gradient mesh in deep violet, indigo, and slate with subtle glowing orbs and glassmorphism style, dark mode aesthetics, premium and sleek"
+    aspect_ratio: "16:9"
+
+notes:
+  - Custom email/password auth implemented using provided api-client-react hooks
+  - Uses wouter for routing and framer-motion for page transitions
+  - Chat polls every 3 seconds for new messages via refetchInterval
