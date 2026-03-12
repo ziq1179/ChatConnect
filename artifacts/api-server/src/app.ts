@@ -43,8 +43,14 @@ if (process.env.NODE_ENV === "production") {
   const scriptDir = path.dirname(process.argv[1]);
   const frontendDist = path.resolve(scriptDir, "public");
   app.use(express.static(frontendDist));
-  app.get("*", (_req, res) => {
-    res.sendFile(path.join(frontendDist, "index.html"));
+  // SPA catch-all: serve index.html for any unmatched GET request
+  // Use middleware form (not app.get("*")) for Express 5 compatibility
+  app.use((req, res, next) => {
+    if (req.method === "GET") {
+      res.sendFile(path.join(frontendDist, "index.html"));
+    } else {
+      next();
+    }
   });
 }
 
