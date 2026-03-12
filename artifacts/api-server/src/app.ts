@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import path from "path";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -35,5 +36,16 @@ app.use(
 
 app.use(authMiddleware);
 app.use("/api", router);
+
+if (process.env.NODE_ENV === "production") {
+  // process.argv[1] = path to running script (e.g. dist/index.cjs)
+  // works in both ESM and esbuild-bundled CJS without import.meta.url
+  const scriptDir = path.dirname(process.argv[1]);
+  const frontendDist = path.resolve(scriptDir, "public");
+  app.use(express.static(frontendDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 export default app;
