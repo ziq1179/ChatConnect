@@ -1,0 +1,19 @@
+packages:
+  "framer-motion": "Smooth animations for page transitions, message bubbles, and dialogs"
+  "date-fns": "For formatting message timestamps and relative dates"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility to elegantly merge Tailwind classes"
+  "@radix-ui/react-dialog": "Accessible unstyled dialog for new conversation modal"
+  "@radix-ui/react-avatar": "Accessible avatar component with fallback support"
+  "@radix-ui/react-scroll-area": "Custom styled cross-browser scrollbars"
+
+images:
+  - path: "artifacts/messaging-app/public/images/login-bg.png"
+    description: "A stunning, highly abstract gradient mesh background with deep indigo, violet, and soft ambient white light. Very smooth, minimal, elegant, Apple-like aesthetic."
+    aspect_ratio: "16:9"
+
+notes:
+  - Using Replit Auth web client (@workspace/replit-auth-web) for authentication state
+  - Using pre-generated TanStack Query hooks from @workspace/api-client-react
+  - Implementing long polling (3s) for real-time messages via TanStack Query refetchInterval
+  - Responsive layout: mobile shows list OR chat, desktop shows both side-by-side
