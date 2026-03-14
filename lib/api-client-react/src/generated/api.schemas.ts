@@ -70,6 +70,8 @@ export interface Conversation {
   id: number;
   /** @nullable */
   name: string | null;
+  /** @nullable */
+  avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   participants: ConversationParticipant[];
@@ -78,6 +80,7 @@ export interface Conversation {
 
 export interface CreateConversationBody {
   name?: string;
+  avatarUrl?: string;
   participantIds: string[];
 }
 

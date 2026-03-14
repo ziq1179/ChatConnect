@@ -79,6 +79,7 @@ async function buildConversationResponse(convId: number) {
   return {
     id: conversation.id,
     name: conversation.name,
+    avatarUrl: conversation.avatarUrl ?? null,
     createdAt: conversation.createdAt.toISOString(),
     updatedAt: conversation.updatedAt.toISOString(),
     participants: participants.map((p) => ({
@@ -147,13 +148,13 @@ router.post("/conversations", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, participantIds } = parsed.data;
+  const { name, avatarUrl, participantIds } = parsed.data;
   const currentUserId = req.user.id;
   const allParticipantIds = Array.from(new Set([currentUserId, ...participantIds]));
 
   const [conversation] = await db
     .insert(conversationsTable)
-    .values({ name: name ?? null })
+    .values({ name: name ?? null, avatarUrl: avatarUrl ?? null })
     .returning();
 
   await db.insert(conversationParticipantsTable).values(

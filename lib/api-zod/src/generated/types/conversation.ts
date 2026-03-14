@@ -12,6 +12,8 @@ export interface Conversation {
   id: number;
   /** @nullable */
   name: string | null;
+  /** @nullable */
+  avatarUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
   participants: ConversationParticipant[];

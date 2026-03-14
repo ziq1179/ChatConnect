@@ -21,32 +21,10 @@ import { GifPicker } from "@/components/GifPicker";
 import { VideoMessage, isVideoUrl } from "@/components/VideoMessage";
 import { cn } from "@/lib/utils";
 
+import { compressImage } from "@/lib/compress-image";
+
 const GIF_URL_PATTERN = /^https:\/\/(media\d*\.giphy\.com|media\.tenor\.com)\//;
 const IMAGE_DATA_URL_PATTERN = /^data:image\//;
-
-function compressImage(file: File, maxPx = 1280, quality = 0.82): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.onerror = reject;
-      img.src = e.target!.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 // Matches strings that contain only emoji characters (and whitespace between them)
 function isEmojiOnly(str: string): boolean {
@@ -267,6 +245,7 @@ export default function Home() {
   };
   
   const getConversationAvatar = (conv: any) => {
+    if (conv.avatarUrl) return conv.avatarUrl;
     const others = conv.participants.filter((p: any) => p.userId !== user?.id);
     if (others.length !== 1) return null;
     return others[0].avatarUrl ?? null;

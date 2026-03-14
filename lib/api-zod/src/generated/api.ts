@@ -106,6 +106,7 @@ export const ListConversationsResponse = zod.array(
  */
 export const CreateConversationBody = zod.object({
   name: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
   participantIds: zod.array(zod.string()),
 });
 
