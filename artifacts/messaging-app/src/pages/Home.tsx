@@ -22,6 +22,7 @@ import { VideoMessage, isVideoUrl } from "@/components/VideoMessage";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
 import { GroupEditDialog } from "@/components/GroupEditDialog";
 import { ForwardDialog } from "@/components/ForwardDialog";
+import { AudioMessage } from "@/components/AudioMessage";
 import { cn } from "@/lib/utils";
 
 import { compressImage } from "@/lib/compress-image";
@@ -634,19 +635,7 @@ export default function Home() {
                           ) : isVideoUrl(msg.content) ? (
                             <VideoMessage url={msg.content} isOwn={isOwn} />
                           ) : AUDIO_DATA_URL_PATTERN.test(msg.content) ? (
-                            <div className={cn(
-                              "px-3 py-2 rounded-2xl shadow-sm",
-                              isOwn
-                                ? "bg-gradient-to-br from-primary to-violet-500 rounded-br-sm"
-                                : "bg-secondary rounded-bl-sm border border-white/5"
-                            )}>
-                              <audio
-                                controls
-                                src={msg.content}
-                                className="h-9 max-w-[260px] w-full"
-                                style={{ colorScheme: "dark" }}
-                              />
-                            </div>
+                            <AudioMessage dataUrl={msg.content} isOwn={isOwn} />
                           ) : isEmojiOnly(msg.content) ? (
                             <div className="text-5xl leading-none select-text py-1">
                               {msg.content}
