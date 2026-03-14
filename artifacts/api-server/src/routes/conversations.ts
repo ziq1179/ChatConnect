@@ -437,7 +437,6 @@ router.post("/conversations/:id/participants", async (req, res): Promise<void> =
     .then((rows) => rows[0]);
 
   if (!conversation) { res.status(404).json({ error: "Conversation not found" }); return; }
-  if (!conversation.isGroup) { res.status(400).json({ error: "Can only add participants to group conversations" }); return; }
 
   // Verify caller is a participant
   const participation = await db
