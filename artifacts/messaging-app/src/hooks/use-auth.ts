@@ -42,14 +42,22 @@ export function useAuth() {
     }
   });
 
+  const refreshUser = () => {
+    queryClient.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() });
+  };
+
+  const user = data?.user ?? null;
+  const userWithAvatar = user as typeof user & { avatarUrl?: string | null };
+
   return {
-    user: data?.user ?? null,
-    isAuthenticated: !!data?.user,
+    user: userWithAvatar,
+    isAuthenticated: !!user,
     isLoading,
     error,
     login: loginMutation.mutateAsync,
     signup: signupMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,
+    refreshUser,
     isLoggingIn: loginMutation.isPending,
     isSigningUp: signupMutation.isPending,
     isLoggingOut: logoutMutation.isPending,

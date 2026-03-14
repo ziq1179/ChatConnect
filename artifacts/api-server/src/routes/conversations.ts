@@ -50,6 +50,7 @@ async function buildConversationResponse(convId: number) {
       userId: conversationParticipantsTable.userId,
       firstName: usersTable.firstName,
       lastName: usersTable.lastName,
+      avatarUrl: usersTable.avatarUrl,
     })
     .from(conversationParticipantsTable)
     .leftJoin(usersTable, eq(conversationParticipantsTable.userId, usersTable.id))
@@ -82,6 +83,7 @@ async function buildConversationResponse(convId: number) {
       userId: p.userId,
       firstName: p.firstName ?? "",
       lastName: p.lastName ?? "",
+      avatarUrl: p.avatarUrl ?? null,
     })),
     lastMessage: lastMessage
       ? {

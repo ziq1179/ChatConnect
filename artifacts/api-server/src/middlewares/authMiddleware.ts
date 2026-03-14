@@ -9,6 +9,7 @@ declare module "express-serve-static-core" {
       email: string;
       firstName: string;
       lastName: string;
+      avatarUrl?: string | null;
     };
     isAuthenticated(): this is Request & { user: NonNullable<Request["user"]> };
   }
@@ -39,6 +40,7 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        avatarUrl: user.avatarUrl,
       };
     }
   }

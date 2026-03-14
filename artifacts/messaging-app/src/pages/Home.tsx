@@ -13,6 +13,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { Send, LogOut, Edit, MessageSquare, Loader2, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar } from "@/components/Avatar";
+import { AvatarUpload } from "@/components/AvatarUpload";
 import { NewChatDialog } from "@/components/NewChatDialog";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ function formatMessageTime(dateStr: string) {
 }
 
 export default function Home() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [, setLocation] = useLocation();
   const params = useParams();
   const activeConversationId = params.id ? parseInt(params.id, 10) : null;
@@ -153,7 +154,9 @@ export default function Home() {
   
   const getConversationAvatar = (conv: any) => {
     const others = conv.participants.filter((p: any) => p.userId !== user?.id);
-    return others.length === 1 ? others[0].profileImageUrl : null;
+    if (others.length !== 1) return null;
+    const avatarUrl = others[0].avatarUrl;
+    return avatarUrl ? `/api/storage${avatarUrl}` : null;
   };
 
   return (
@@ -167,7 +170,12 @@ export default function Home() {
       >
         <div className="p-4 border-b border-border flex items-center justify-between bg-card/50 backdrop-blur-sm sticky top-0 z-10">
           <div className="flex items-center gap-3">
-            <Avatar name={`${user?.firstName} ${user?.lastName}`} size="sm" />
+            <AvatarUpload
+              name={`${user?.firstName} ${user?.lastName}`}
+              currentAvatarUrl={user?.avatarUrl}
+              size="sm"
+              onUploaded={() => refreshUser()}
+            />
             <div className="font-display font-semibold text-foreground">Messages</div>
           </div>
           <div className="flex items-center gap-1">
