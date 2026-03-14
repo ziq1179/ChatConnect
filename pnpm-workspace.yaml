@@ -33,7 +33,6 @@ minimumReleaseAge: 1440
 
 onlyBuiltDependencies:
   - '@swc/core'
-  - bcrypt
   - esbuild
   - msw
   - unrs-resolver

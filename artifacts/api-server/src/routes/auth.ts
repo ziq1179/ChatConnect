@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { db, usersTable } from "@workspace/db";
 import { SignupBody, LoginBody } from "@workspace/api-zod";
