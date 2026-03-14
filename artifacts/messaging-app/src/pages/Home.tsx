@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useNotifications } from "@/hooks/use-notifications";
 import { 
   useListConversations, 
   useListMessages, 
@@ -10,7 +11,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar } from "@/components/Avatar";
 import { AvatarUpload } from "@/components/AvatarUpload";
@@ -143,6 +144,19 @@ export default function Home() {
     ? "Several people are typing"
     : null;
 
+  const { permission, requestPermission, unread } = useNotifications(
+    conversations as any,
+    user?.id,
+    activeConversationId,
+  );
+
+  // Update browser tab title with total unread count
+  useEffect(() => {
+    const total = Array.from(unread.values()).reduce((a, b) => a + b, 0);
+    document.title = total > 0 ? `(${total}) Connect` : "Connect";
+    return () => { document.title = "Connect"; };
+  }, [unread]);
+
   const activeConversation = conversations?.find(c => c.id === activeConversationId);
   const getConversationName = (conv: any) => {
     if (conv.name) return conv.name;
@@ -195,6 +209,20 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Notification permission nudge */}
+        {permission === "default" && (
+          <div className="mx-3 mt-2 mb-1 flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 px-3 py-2">
+            <Bell className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs text-foreground flex-1">Get notified about new messages</span>
+            <button
+              onClick={requestPermission}
+              className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
+            >
+              Enable
+            </button>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {isConversationsLoading ? (
             <div className="p-4 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
@@ -219,14 +247,29 @@ export default function Home() {
                   <Avatar name={name} src={getConversationAvatar(conv)} />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-0.5">
-                      <div className="font-medium truncate text-foreground text-sm">{name}</div>
-                      {conv.lastMessage && (
-                        <div className="text-[10px] whitespace-nowrap ml-2 opacity-60">
-                          {formatMessageTime(conv.lastMessage.createdAt)}
-                        </div>
-                      )}
+                      <div className={cn(
+                        "font-medium truncate text-sm",
+                        unread.get(conv.id) ? "text-foreground" : "text-foreground"
+                      )}>
+                        {name}
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                        {conv.lastMessage && (
+                          <div className="text-[10px] whitespace-nowrap opacity-60">
+                            {formatMessageTime(conv.lastMessage.createdAt)}
+                          </div>
+                        )}
+                        {(unread.get(conv.id) ?? 0) > 0 && (
+                          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-bold">
+                            {(unread.get(conv.id) ?? 0) > 99 ? "99+" : unread.get(conv.id)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs truncate opacity-70">
+                    <div className={cn(
+                      "text-xs truncate",
+                      (unread.get(conv.id) ?? 0) > 0 ? "font-medium text-foreground" : "opacity-70"
+                    )}>
                       {conv.lastMessage ? (
                         <>
                           {conv.lastMessage.senderId === user?.id ? "You: " : ""}
