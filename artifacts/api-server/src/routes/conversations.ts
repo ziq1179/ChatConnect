@@ -488,22 +488,27 @@ router.post("/conversations/:conversationId/messages/:messageId/reactions", asyn
     .then((rows) => rows[0]);
   if (!participation) { res.status(403).json({ error: "Forbidden" }); return; }
 
-  const existing = await db
-    .select()
-    .from(messageReactionsTable)
-    .where(and(
-      eq(messageReactionsTable.messageId, messageId),
-      eq(messageReactionsTable.userId, userId),
-      eq(messageReactionsTable.emoji, emoji)
-    ))
-    .then((rows) => rows[0]);
+  try {
+    const existing = await db
+      .select()
+      .from(messageReactionsTable)
+      .where(and(
+        eq(messageReactionsTable.messageId, messageId),
+        eq(messageReactionsTable.userId, userId),
+        eq(messageReactionsTable.emoji, emoji)
+      ))
+      .then((rows) => rows[0]);
 
-  if (existing) {
-    await db.delete(messageReactionsTable).where(eq(messageReactionsTable.id, existing.id));
-    res.json({ action: "removed" });
-  } else {
-    await db.insert(messageReactionsTable).values({ messageId, userId, emoji });
-    res.json({ action: "added" });
+    if (existing) {
+      await db.delete(messageReactionsTable).where(eq(messageReactionsTable.id, existing.id));
+      res.json({ action: "removed" });
+    } else {
+      await db.insert(messageReactionsTable).values({ messageId, userId, emoji });
+      res.json({ action: "added" });
+    }
+  } catch {
+    // table may not exist yet in older deployments
+    res.status(503).json({ error: "Reactions unavailable until next deployment" });
   }
 });
 
