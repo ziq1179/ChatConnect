@@ -7,9 +7,31 @@ interface AvatarUploadProps {
   name: string;
   currentAvatarUrl?: string | null;
   size?: "sm" | "md" | "lg" | "xl";
-  onUploaded?: (objectPath: string) => void;
+  onUploaded?: () => void;
   className?: string;
   editable?: boolean;
+}
+
+function resizeToDataUrl(file: File, maxSize: number, quality: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas not supported")); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image")); };
+    img.src = url;
+  });
 }
 
 export function AvatarUpload({
@@ -24,8 +46,7 @@ export function AvatarUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
 
-  const resolvedSrc = localPreview
-    ?? (currentAvatarUrl ? `/api/storage${currentAvatarUrl}` : null);
+  const resolvedSrc = localPreview ?? currentAvatarUrl ?? null;
 
   const handleClick = () => {
     if (!editable || isUploading) return;
@@ -40,54 +61,32 @@ export function AvatarUpload({
       alert("Please select an image file.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be under 5 MB.");
-      return;
-    }
-
-    // Show a local preview immediately
-    const reader = new FileReader();
-    reader.onload = (ev) => setLocalPreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
 
     setIsUploading(true);
     try {
-      // Step 1: request a presigned upload URL
-      const urlRes = await fetch("/api/storage/uploads/request-url", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: file.name,
-          size: file.size,
-          contentType: file.type,
-        }),
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await urlRes.json();
+      // Resize to max 256px and compress to JPEG at 85% quality.
+      // A 256×256 JPEG at 85% is typically 15–40 KB (20–55 KB as base64).
+      const imageData = await resizeToDataUrl(file, 256, 0.85);
 
-      // Step 2: upload the file directly to object storage
-      const uploadRes = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-      if (!uploadRes.ok) throw new Error("Failed to upload image");
+      setLocalPreview(imageData);
 
-      // Step 3: save the objectPath on the user profile
-      const saveRes = await fetch("/api/auth/profile/avatar", {
+      const res = await fetch("/api/auth/profile/avatar", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ objectPath }),
+        body: JSON.stringify({ imageData }),
       });
-      if (!saveRes.ok) throw new Error("Failed to save avatar");
 
-      onUploaded?.(objectPath);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Upload failed");
+      }
+
+      onUploaded?.();
     } catch (err) {
       console.error("Avatar upload failed:", err);
       setLocalPreview(null);
-      alert("Upload failed. Please try again.");
+      alert(err instanceof Error ? err.message : "Upload failed. Please try again.");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

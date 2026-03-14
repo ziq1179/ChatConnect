@@ -127,15 +127,22 @@ router.patch("/auth/profile/avatar", async (req, res): Promise<void> => {
     return;
   }
 
-  const { objectPath } = req.body;
-  if (!objectPath || typeof objectPath !== "string") {
-    res.status(400).json({ error: "objectPath is required" });
+  const { imageData } = req.body;
+  if (!imageData || typeof imageData !== "string" || !imageData.startsWith("data:image/")) {
+    res.status(400).json({ error: "imageData must be a valid base64 image data URL" });
+    return;
+  }
+
+  // Sanity-check size: a 256×256 JPEG at ~80% quality is typically well under 100 KB,
+  // which is ~136 KB as base64. Reject anything suspiciously large.
+  if (imageData.length > 200_000) {
+    res.status(400).json({ error: "Image too large. Please use a smaller image." });
     return;
   }
 
   const [user] = await db
     .update(usersTable)
-    .set({ avatarUrl: objectPath })
+    .set({ avatarUrl: imageData })
     .where(eq(usersTable.id, userId))
     .returning();
 

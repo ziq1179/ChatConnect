@@ -18,8 +18,8 @@ app.set("trust proxy", 1);
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "500kb" }));
+app.use(express.urlencoded({ extended: true, limit: "500kb" }));
 
 const sessionSecret = process.env.SESSION_SECRET || "dev-secret-change-in-production";
 

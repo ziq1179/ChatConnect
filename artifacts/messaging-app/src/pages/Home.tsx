@@ -155,8 +155,7 @@ export default function Home() {
   const getConversationAvatar = (conv: any) => {
     const others = conv.participants.filter((p: any) => p.userId !== user?.id);
     if (others.length !== 1) return null;
-    const avatarUrl = others[0].avatarUrl;
-    return avatarUrl ? `/api/storage${avatarUrl}` : null;
+    return others[0].avatarUrl ?? null;
   };
 
   return (
