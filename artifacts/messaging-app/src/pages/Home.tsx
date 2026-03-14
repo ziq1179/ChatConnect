@@ -11,7 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -79,6 +79,8 @@ export default function Home() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [copiedInviteLink, setCopiedInviteLink] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -291,6 +293,13 @@ export default function Home() {
             <div className="font-display font-semibold text-foreground">Messages</div>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+              title="Invite people"
+            >
+              <UserPlus className="w-5 h-5" />
+            </button>
             <button 
               onClick={() => setIsNewChatOpen(true)}
               className="p-2 rounded-full hover:bg-secondary text-foreground transition-colors"
@@ -702,6 +711,80 @@ export default function Home() {
           setIsSidebarOpen(false);
         }} 
       />
+
+      {/* Invite modal */}
+      <AnimatePresence>
+        {showInviteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+            onClick={() => setShowInviteModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 8 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <UserPlus className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-foreground text-base">Invite people</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Share this link with anyone</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowInviteModal(false)}
+                  className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Link box */}
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary border border-border">
+                <span className="flex-1 text-sm text-foreground font-mono truncate select-all">
+                  {`${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`}
+                </span>
+                <button
+                  onClick={() => {
+                    const link = `${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`;
+                    navigator.clipboard.writeText(link).then(() => {
+                      setCopiedInviteLink(true);
+                      setTimeout(() => setCopiedInviteLink(false), 2500);
+                    });
+                  }}
+                  className={cn(
+                    "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                    copiedInviteLink
+                      ? "bg-green-500/15 text-green-500 border border-green-500/30"
+                      : "bg-primary text-white hover:opacity-90"
+                  )}
+                >
+                  {copiedInviteLink ? (
+                    <><Check className="w-3.5 h-3.5" /> Copied!</>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5" /> Copy</>
+                  )}
+                </button>
+              </div>
+
+              {/* What they'll see */}
+              <p className="text-xs text-muted-foreground text-center leading-relaxed">
+                Anyone with this link can create a free account and start chatting with you on Connect.
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -20,7 +20,9 @@ const signupSchema = z.object({
 });
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(
+    !new URLSearchParams(window.location.search).get("signup")
+  );
   const { login, signup, isLoggingIn, isSigningUp } = useAuth();
   const [error, setError] = useState<string | null>(null);
 

@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import AuthPage from "@/pages/AuthPage";
+import InvitePage from "@/pages/InvitePage";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ function Router() {
         <ProtectedRoute component={Home} />
       </Route>
       <Route path="/login" component={AuthPage} />
+      <Route path="/invite" component={InvitePage} />
       <Route component={NotFound} />
     </Switch>
   );
