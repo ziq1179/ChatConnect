@@ -170,6 +170,7 @@ export const SendMessageParams = zod.object({
 
 export const SendMessageBody = zod.object({
   content: zod.string().min(1),
+  replyToId: zod.number().int().nullable().optional(),
 });
 
 /**
