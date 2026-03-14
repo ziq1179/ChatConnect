@@ -11,7 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2 } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -22,6 +22,31 @@ import { VideoMessage, isVideoUrl } from "@/components/VideoMessage";
 import { cn } from "@/lib/utils";
 
 const GIF_URL_PATTERN = /^https:\/\/(media\d*\.giphy\.com|media\.tenor\.com)\//;
+const IMAGE_DATA_URL_PATTERN = /^data:image\//;
+
+function compressImage(file: File, maxPx = 1280, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = e.target!.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 // Matches strings that contain only emoji characters (and whitespace between them)
 function isEmojiOnly(str: string): boolean {
@@ -56,8 +81,10 @@ export default function Home() {
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const lastPingSentAt = useRef<number>(0);
   const stopTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
 
   // Close sidebar on mobile when a conversation is selected
   useEffect(() => {
@@ -107,6 +134,20 @@ export default function Home() {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !activeConversationId) return;
+    if (!file.type.startsWith("image/")) return;
+    setIsCompressing(true);
+    try {
+      const dataUrl = await compressImage(file);
+      sendMessage.mutate({ conversationId: activeConversationId, data: { content: dataUrl } });
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   useEffect(() => {
@@ -331,7 +372,15 @@ export default function Home() {
                       {conv.lastMessage ? (
                         <>
                           {conv.lastMessage.senderId === user?.id ? "You: " : ""}
-                          {conv.lastMessage.content}
+                          {conv.lastMessage.deleted
+                            ? "Message deleted"
+                            : IMAGE_DATA_URL_PATTERN.test(conv.lastMessage.content)
+                            ? "📷 Photo"
+                            : GIF_URL_PATTERN.test(conv.lastMessage.content)
+                            ? "GIF"
+                            : isVideoUrl(conv.lastMessage.content)
+                            ? "🎬 Video"
+                            : conv.lastMessage.content}
                         </>
                       ) : (
                         "No messages yet"
@@ -434,6 +483,16 @@ export default function Home() {
                               isOwn ? "rounded-br-sm border-border/60" : "rounded-bl-sm border-border/60"
                             )}>
                               Message deleted
+                            </div>
+                          ) : IMAGE_DATA_URL_PATTERN.test(msg.content) ? (
+                            <div className={cn("rounded-2xl overflow-hidden shadow-sm", isOwn ? "rounded-br-sm" : "rounded-bl-sm")}>
+                              <img
+                                src={msg.content}
+                                alt="Photo"
+                                className="max-w-[260px] w-full object-cover block cursor-pointer"
+                                loading="lazy"
+                                onClick={() => window.open(msg.content, "_blank")}
+                              />
                             </div>
                           ) : GIF_URL_PATTERN.test(msg.content) ? (
                             <div className={cn("rounded-2xl overflow-hidden shadow-sm", isOwn ? "rounded-br-sm" : "rounded-bl-sm")}>
@@ -558,6 +617,28 @@ export default function Home() {
                   title="Send a GIF"
                 >
                   GIF
+                </button>
+
+                {/* Hidden image file input */}
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageSelected}
+                />
+
+                {/* Image button */}
+                <button
+                  type="button"
+                  disabled={isCompressing || !activeConversationId}
+                  onClick={() => imageInputRef.current?.click()}
+                  className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+                  title="Send a photo"
+                >
+                  {isCompressing
+                    ? <Loader2 className="w-5 h-5 animate-spin" />
+                    : <ImagePlus className="w-5 h-5" />}
                 </button>
 
                 {/* Video link button */}
