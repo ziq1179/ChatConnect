@@ -11,7 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward, Mic, Square } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward, Mic, Square, Reply } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -23,14 +23,30 @@ import { PhotoLightbox } from "@/components/PhotoLightbox";
 import { GroupEditDialog } from "@/components/GroupEditDialog";
 import { ForwardDialog } from "@/components/ForwardDialog";
 import { AudioMessage } from "@/components/AudioMessage";
+import { SwipeableMessage } from "@/components/SwipeableMessage";
 import { cn } from "@/lib/utils";
 
 import { compressImage } from "@/lib/compress-image";
 import { usePresence } from "@/hooks/use-presence";
 
+type ReplyTarget = {
+  id: number;
+  senderId: string;
+  content: string;
+  senderFirstName: string;
+};
+
 const GIF_URL_PATTERN = /^https:\/\/(media\d*\.giphy\.com|media\.tenor\.com)\//;
 const IMAGE_DATA_URL_PATTERN = /^data:image\//;
 const AUDIO_DATA_URL_PATTERN = /^data:audio\//;
+
+function summarizeContent(content: string): string {
+  if (IMAGE_DATA_URL_PATTERN.test(content)) return "📷 Photo";
+  if (AUDIO_DATA_URL_PATTERN.test(content)) return "🎤 Voice message";
+  if (GIF_URL_PATTERN.test(content)) return "GIF";
+  if (isVideoUrl(content)) return "🎬 Video";
+  return content.length > 80 ? content.slice(0, 80) + "…" : content;
+}
 
 function formatRecordingDuration(sec: number) {
   const m = Math.floor(sec / 60).toString().padStart(2, "0");
@@ -75,6 +91,7 @@ export default function Home() {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showGroupEdit, setShowGroupEdit] = useState(false);
   const [forwardingContent, setForwardingContent] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -242,8 +259,8 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [activeConversationId]);
 
-  // Reset typing state when switching conversations
-  useEffect(() => { setTypingUsers([]); }, [activeConversationId]);
+  // Reset typing + reply state when switching conversations
+  useEffect(() => { setTypingUsers([]); setReplyTo(null); }, [activeConversationId]);
 
   const sendTypingPing = useCallback(async (convId: number) => {
     const now = Date.now();
@@ -276,10 +293,12 @@ export default function Home() {
     if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
     lastPingSentAt.current = 0;
     const text = messageText;
+    const currentReplyTo = replyTo;
     setMessageText("");
+    setReplyTo(null);
     sendMessage.mutate({ 
       conversationId: activeConversationId, 
-      data: { content: text } 
+      data: { content: text, replyToId: currentReplyTo?.id ?? null } 
     });
     inputRef.current?.focus();
   };
@@ -557,10 +576,10 @@ export default function Home() {
                   const showAvatar = !isOwn && (index === 0 || messages[index - 1].senderId !== msg.senderId);
                   
                   return (
+                    <SwipeableMessage key={msg.id} onReply={() => { setReplyTo(msg); inputRef.current?.focus(); }}>
                     <motion.div 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      key={msg.id} 
                       className={cn("flex w-full group/msg", isOwn ? "justify-end" : "justify-start")}
                       onMouseEnter={() => !msg.deleted && setHoveredMessageId(msg.id)}
                       onMouseLeave={() => setHoveredMessageId(null)}
@@ -584,6 +603,13 @@ export default function Home() {
                             "flex items-center gap-0.5 transition-all shrink-0",
                             hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
                           )}>
+                            <button
+                              title="Reply"
+                              onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Reply className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               title="Forward message"
                               onClick={() => setForwardingContent(msg.content)}
@@ -609,6 +635,26 @@ export default function Home() {
                           {showAvatar && (
                             <span className="text-xs text-muted-foreground ml-1 mb-1">{msg.senderFirstName}</span>
                           )}
+
+                          {/* Reply quote */}
+                          {!msg.deleted && msg.replyToId && (
+                            <div className={cn(
+                              "mb-1.5 px-2.5 py-1.5 rounded-xl text-xs border-l-2 max-w-[240px] w-full",
+                              isOwn
+                                ? "border-white/60 bg-white/20 text-white/90"
+                                : "border-primary/70 bg-primary/10 text-foreground"
+                            )}>
+                              <div className="font-semibold mb-0.5 truncate">
+                                {msg.replyToSenderFirstName ?? "Deleted user"}
+                              </div>
+                              <div className="truncate opacity-80">
+                                {msg.replyToContent
+                                  ? summarizeContent(msg.replyToContent)
+                                  : "Message deleted"}
+                              </div>
+                            </div>
+                          )}
+
                           {msg.deleted ? (
                             <div className={cn(
                               "px-4 py-2.5 rounded-2xl text-[14px] italic text-muted-foreground border border-dashed",
@@ -663,9 +709,16 @@ export default function Home() {
                         {/* Action buttons for OTHERS' messages — sit to the right of the bubble (flex-row) */}
                         {!isOwn && !msg.deleted && (
                           <div className={cn(
-                            "flex items-center self-center transition-all shrink-0",
+                            "flex items-center self-center gap-0.5 transition-all shrink-0",
                             hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
                           )}>
+                            <button
+                              title="Reply"
+                              onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Reply className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               title="Forward message"
                               onClick={() => setForwardingContent(msg.content)}
@@ -677,6 +730,7 @@ export default function Home() {
                         )}
                       </div>
                     </motion.div>
+                    </SwipeableMessage>
                   );
                 })
               )}
@@ -724,6 +778,36 @@ export default function Home() {
                     className="mb-2"
                   >
                     <GifPicker onSelect={handleGifSelect} onClose={() => setShowGifPicker(false)} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Reply preview bar */}
+              <AnimatePresence>
+                {replyTo && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl bg-secondary/60 border border-border"
+                  >
+                    <div className="w-0.5 self-stretch bg-primary rounded-full" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-primary truncate">
+                        {replyTo.senderId === user?.id ? "You" : replyTo.senderFirstName}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {summarizeContent(replyTo.content)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyTo(null)}
+                      className="p-1 rounded-full hover:bg-secondary transition-colors shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>

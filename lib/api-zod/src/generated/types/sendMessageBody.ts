@@ -9,4 +9,5 @@
 export interface SendMessageBody {
   /** @minLength 1 */
   content: string;
+  replyToId?: number | null;
 }

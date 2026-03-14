@@ -15,4 +15,7 @@ export interface Message {
   createdAt: Date;
   senderFirstName: string;
   senderLastName: string;
+  replyToId?: number | null;
+  replyToContent?: string | null;
+  replyToSenderFirstName?: string | null;
 }

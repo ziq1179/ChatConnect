@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db, conversationsTable, conversationParticipantsTable, messagesTable, usersTable } from "@workspace/db";
 import {
   CreateConversationBody,
@@ -277,6 +278,9 @@ router.get("/conversations/:conversationId/messages", async (req, res): Promise<
     return;
   }
 
+  const repliedMessage = alias(messagesTable, "replied_message");
+  const repliedSender = alias(usersTable, "replied_sender");
+
   const messages = await db
     .select({
       id: messagesTable.id,
@@ -287,9 +291,15 @@ router.get("/conversations/:conversationId/messages", async (req, res): Promise<
       deletedAt: messagesTable.deletedAt,
       senderFirstName: usersTable.firstName,
       senderLastName: usersTable.lastName,
+      replyToId: messagesTable.replyToId,
+      replyToContent: repliedMessage.content,
+      replyToDeletedAt: repliedMessage.deletedAt,
+      replyToSenderFirstName: repliedSender.firstName,
     })
     .from(messagesTable)
     .leftJoin(usersTable, eq(messagesTable.senderId, usersTable.id))
+    .leftJoin(repliedMessage, eq(messagesTable.replyToId, repliedMessage.id))
+    .leftJoin(repliedSender, eq(repliedMessage.senderId, repliedSender.id))
     .where(eq(messagesTable.conversationId, conversationId))
     .orderBy(messagesTable.createdAt);
 
@@ -302,6 +312,9 @@ router.get("/conversations/:conversationId/messages", async (req, res): Promise<
     createdAt: m.createdAt.toISOString(),
     senderFirstName: m.senderFirstName ?? "",
     senderLastName: m.senderLastName ?? "",
+    replyToId: m.replyToId ?? null,
+    replyToContent: m.replyToDeletedAt ? null : (m.replyToContent ?? null),
+    replyToSenderFirstName: m.replyToSenderFirstName ?? null,
   })));
 });
 
@@ -342,7 +355,7 @@ router.post("/conversations/:conversationId/messages", async (req, res): Promise
 
   const [message] = await db
     .insert(messagesTable)
-    .values({ conversationId, senderId: userId, content: body.data.content })
+    .values({ conversationId, senderId: userId, content: body.data.content, replyToId: body.data.replyToId ?? null })
     .returning();
 
   await db
