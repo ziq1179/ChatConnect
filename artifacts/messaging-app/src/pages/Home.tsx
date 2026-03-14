@@ -153,17 +153,32 @@ export default function Home() {
     if (!activeConversationId) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
-      const recorder = new MediaRecorder(stream, { mimeType });
+
+      // Pick the best supported format (including full codec string so the Blob is decodable)
+      const preferredTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+      ];
+      const mimeType = preferredTypes.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
 
+      // Use timeslice so chunks arrive regularly — makes the final blob well-formed
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        // Use the recorder's actual mimeType (includes codec) so the data URL is fully valid
+        const actualType = recorder.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type: actualType });
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUrl = reader.result as string;
@@ -178,7 +193,7 @@ export default function Home() {
         if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       };
 
-      recorder.start();
+      recorder.start(250); // collect a chunk every 250 ms for reliable blob assembly
       setIsRecording(true);
       setRecordingDuration(0);
       recordingTimerRef.current = setInterval(() => setRecordingDuration((d) => d + 1), 1000);
