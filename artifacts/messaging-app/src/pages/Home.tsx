@@ -20,7 +20,7 @@ import { NewChatDialog } from "@/components/NewChatDialog";
 import { GifPicker } from "@/components/GifPicker";
 import { cn } from "@/lib/utils";
 
-const GIF_URL_PATTERN = /^https:\/\/media\d*\.giphy\.com\//;
+const GIF_URL_PATTERN = /^https:\/\/(media\d*\.giphy\.com|media\.tenor\.com)\//;
 
 // Matches strings that contain only emoji characters (and whitespace between them)
 function isEmojiOnly(str: string): boolean {

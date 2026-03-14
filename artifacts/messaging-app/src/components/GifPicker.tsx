@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, X, Loader2 } from "lucide-react";
 
-const GIPHY_KEY = import.meta.env.VITE_GIPHY_API_KEY || "dc6zaTOxFJmzC";
-const GIPHY_BASE = "https://api.giphy.com/v1/gifs";
+const TENOR_KEY = import.meta.env.VITE_TENOR_API_KEY || "LIVDSRZULELA";
+const TENOR_BASE = "https://api.tenor.com/v1";
 
-interface GifResult {
+interface TenorResult {
   id: string;
   title: string;
-  images: {
-    fixed_height_small: { url: string; width: string; height: string };
-    original: { url: string };
-  };
+  media: Array<{
+    tinygif: { url: string; dims: number[] };
+    gif: { url: string; dims: number[] };
+  }>;
 }
 
 interface GifPickerProps {
@@ -20,7 +20,7 @@ interface GifPickerProps {
 
 export function GifPicker({ onSelect, onClose }: GifPickerProps) {
   const [query, setQuery] = useState("");
-  const [gifs, setGifs] = useState<GifResult[]>([]);
+  const [gifs, setGifs] = useState<TenorResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -31,12 +31,12 @@ export function GifPicker({ onSelect, onClose }: GifPickerProps) {
     setError(null);
     try {
       const endpoint = q.trim()
-        ? `${GIPHY_BASE}/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=20&rating=pg`
-        : `${GIPHY_BASE}/trending?api_key=${GIPHY_KEY}&limit=20&rating=pg`;
+        ? `${TENOR_BASE}/search?key=${TENOR_KEY}&q=${encodeURIComponent(q)}&limit=20&media_filter=minimal&contentfilter=medium`
+        : `${TENOR_BASE}/trending?key=${TENOR_KEY}&limit=20&media_filter=minimal&contentfilter=medium`;
       const res = await fetch(endpoint);
       if (!res.ok) throw new Error("Failed to load GIFs");
       const json = await res.json();
-      setGifs(json.data ?? []);
+      setGifs(json.results ?? []);
     } catch {
       setError("Could not load GIFs. Please try again.");
     } finally {
@@ -87,27 +87,32 @@ export function GifPicker({ onSelect, onClose }: GifPickerProps) {
           <div className="h-full flex items-center justify-center text-xs text-muted-foreground">No GIFs found</div>
         ) : (
           <div className="columns-2 gap-2 space-y-2">
-            {gifs.map(gif => (
-              <button
-                key={gif.id}
-                onClick={() => { onSelect(gif.images.original.url); onClose(); }}
-                className="w-full break-inside-avoid rounded-lg overflow-hidden hover:opacity-80 active:scale-95 transition-all"
-                title={gif.title}
-              >
-                <img
-                  src={gif.images.fixed_height_small.url}
-                  alt={gif.title}
-                  className="w-full object-cover"
-                  loading="lazy"
-                />
-              </button>
-            ))}
+            {gifs.map(gif => {
+              const thumb = gif.media[0]?.tinygif?.url;
+              const full = gif.media[0]?.gif?.url;
+              if (!thumb || !full) return null;
+              return (
+                <button
+                  key={gif.id}
+                  onClick={() => { onSelect(full); onClose(); }}
+                  className="w-full break-inside-avoid rounded-lg overflow-hidden hover:opacity-80 active:scale-95 transition-all"
+                  title={gif.title}
+                >
+                  <img
+                    src={thumb}
+                    alt={gif.title}
+                    className="w-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
 
       <div className="px-3 py-1.5 border-t border-border text-[10px] text-muted-foreground text-right">
-        Powered by GIPHY
+        Powered by Tenor
       </div>
     </div>
   );
