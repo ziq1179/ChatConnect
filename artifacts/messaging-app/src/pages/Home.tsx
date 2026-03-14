@@ -784,7 +784,7 @@ export default function Home() {
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Suggested message</p>
                   <div className="p-3 rounded-xl bg-secondary border border-border text-sm text-foreground leading-relaxed select-all whitespace-pre-wrap">
-                    {`Hey! I've been using Connect to chat — it's simple, free, and great for sharing photos, GIFs and videos too.\n\nJoin me here: ${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`}
+                    {`Ye app Zafar ne banai ha, free ha aajo sab 🎉\n\nHey! I've been using Connect to chat — it's simple, free, and great for sharing photos, GIFs and videos too.\n\nJoin me here: ${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`}
                   </div>
                 </div>
 
@@ -792,7 +792,7 @@ export default function Home() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
-                      const msg = `Hey! I've been using Connect to chat — it's simple, free, and great for sharing photos, GIFs and videos too.\n\nJoin me here: ${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`;
+                      const msg = `Ye app Zafar ne banai ha, free ha aajo sab 🎉\n\nHey! I've been using Connect to chat — it's simple, free, and great for sharing photos, GIFs and videos too.\n\nJoin me here: ${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`;
                       navigator.clipboard.writeText(msg).then(() => {
                         setCopiedInviteLink(true);
                         setTimeout(() => setCopiedInviteLink(false), 2500);
