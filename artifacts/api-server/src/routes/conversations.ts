@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db, conversationsTable, conversationParticipantsTable, messagesTable, usersTable } from "@workspace/db";
+import { db, conversationsTable, conversationParticipantsTable, messagesTable, usersTable, messageReactionsTable } from "@workspace/db";
 import {
   CreateConversationBody,
   DeleteMessageParams,
@@ -303,19 +303,49 @@ router.get("/conversations/:conversationId/messages", async (req, res): Promise<
     .where(eq(messagesTable.conversationId, conversationId))
     .orderBy(messagesTable.createdAt);
 
-  res.json(messages.map((m) => ({
-    id: m.id,
-    conversationId: m.conversationId,
-    senderId: m.senderId,
-    content: m.deletedAt ? "" : m.content,
-    deleted: !!m.deletedAt,
-    createdAt: m.createdAt.toISOString(),
-    senderFirstName: m.senderFirstName ?? "",
-    senderLastName: m.senderLastName ?? "",
-    replyToId: m.replyToId ?? null,
-    replyToContent: m.replyToDeletedAt ? null : (m.replyToContent ?? null),
-    replyToSenderFirstName: m.replyToSenderFirstName ?? null,
-  })));
+  const messageIds = messages.map((m) => m.id);
+  const allReactions = messageIds.length > 0
+    ? await db
+        .select({
+          messageId: messageReactionsTable.messageId,
+          userId: messageReactionsTable.userId,
+          emoji: messageReactionsTable.emoji,
+        })
+        .from(messageReactionsTable)
+        .where(inArray(messageReactionsTable.messageId, messageIds))
+    : [];
+
+  // Group reactions by messageId → emoji → { count, userIds }
+  const reactionsByMessage = new Map<number, Map<string, { count: number; userIds: string[] }>>();
+  for (const r of allReactions) {
+    if (!reactionsByMessage.has(r.messageId)) reactionsByMessage.set(r.messageId, new Map());
+    const byEmoji = reactionsByMessage.get(r.messageId)!;
+    if (!byEmoji.has(r.emoji)) byEmoji.set(r.emoji, { count: 0, userIds: [] });
+    const entry = byEmoji.get(r.emoji)!;
+    entry.count++;
+    entry.userIds.push(r.userId);
+  }
+
+  res.json(messages.map((m) => {
+    const emojiMap = reactionsByMessage.get(m.id);
+    const reactions = emojiMap
+      ? Array.from(emojiMap.entries()).map(([emoji, { count, userIds }]) => ({ emoji, count, userIds }))
+      : [];
+    return {
+      id: m.id,
+      conversationId: m.conversationId,
+      senderId: m.senderId,
+      content: m.deletedAt ? "" : m.content,
+      deleted: !!m.deletedAt,
+      createdAt: m.createdAt.toISOString(),
+      senderFirstName: m.senderFirstName ?? "",
+      senderLastName: m.senderLastName ?? "",
+      replyToId: m.replyToId ?? null,
+      replyToContent: m.replyToDeletedAt ? null : (m.replyToContent ?? null),
+      replyToSenderFirstName: m.replyToSenderFirstName ?? null,
+      reactions,
+    };
+  }));
 });
 
 router.post("/conversations/:conversationId/messages", async (req, res): Promise<void> => {
@@ -426,6 +456,50 @@ router.delete("/conversations/:conversationId/messages/:messageId", async (req, 
     .where(eq(messagesTable.id, messageId));
 
   res.json({ ok: true });
+});
+
+// POST /api/conversations/:conversationId/messages/:messageId/reactions — toggle an emoji reaction
+router.post("/conversations/:conversationId/messages/:messageId/reactions", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const conversationId = parseInt(req.params.conversationId, 10);
+  const messageId = parseInt(req.params.messageId, 10);
+  if (isNaN(conversationId) || isNaN(messageId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { emoji } = req.body as { emoji?: string };
+  if (!emoji || typeof emoji !== "string" || emoji.length > 10) {
+    res.status(400).json({ error: "Invalid emoji" }); return;
+  }
+
+  const userId = req.user.id;
+
+  const participation = await db
+    .select()
+    .from(conversationParticipantsTable)
+    .where(and(
+      eq(conversationParticipantsTable.conversationId, conversationId),
+      eq(conversationParticipantsTable.userId, userId)
+    ))
+    .then((rows) => rows[0]);
+  if (!participation) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const existing = await db
+    .select()
+    .from(messageReactionsTable)
+    .where(and(
+      eq(messageReactionsTable.messageId, messageId),
+      eq(messageReactionsTable.userId, userId),
+      eq(messageReactionsTable.emoji, emoji)
+    ))
+    .then((rows) => rows[0]);
+
+  if (existing) {
+    await db.delete(messageReactionsTable).where(eq(messageReactionsTable.id, existing.id));
+    res.json({ action: "removed" });
+  } else {
+    await db.insert(messageReactionsTable).values({ messageId, userId, emoji });
+    res.json({ action: "added" });
+  }
 });
 
 // POST /api/conversations/:id/participants — add members to a group (participants only)

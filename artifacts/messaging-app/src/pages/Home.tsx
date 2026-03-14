@@ -24,6 +24,7 @@ import { GroupEditDialog } from "@/components/GroupEditDialog";
 import { ForwardDialog } from "@/components/ForwardDialog";
 import { AudioMessage } from "@/components/AudioMessage";
 import { SwipeableMessage } from "@/components/SwipeableMessage";
+import { ReactionPicker } from "@/components/ReactionPicker";
 import { cn } from "@/lib/utils";
 
 import { compressImage } from "@/lib/compress-image";
@@ -92,6 +93,7 @@ export default function Home() {
   const [showGroupEdit, setShowGroupEdit] = useState(false);
   const [forwardingContent, setForwardingContent] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
+  const [openReactionPickerId, setOpenReactionPickerId] = useState<number | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -147,6 +149,21 @@ export default function Home() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getListMessagesQueryKey(activeConversationId as number) });
       queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+    },
+  });
+
+  const toggleReaction = useMutation({
+    mutationFn: async ({ conversationId, messageId, emoji }: { conversationId: number; messageId: number; emoji: string }) => {
+      const res = await fetch(`/api/conversations/${conversationId}/messages/${messageId}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ emoji }),
+      });
+      if (!res.ok) throw new Error("Failed to toggle reaction");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListMessagesQueryKey(activeConversationId as number) });
     },
   });
 
@@ -603,6 +620,22 @@ export default function Home() {
                             "flex items-center gap-0.5 transition-all shrink-0",
                             hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
                           )}>
+                            <div className="relative">
+                              <button
+                                title="React"
+                                onClick={() => setOpenReactionPickerId(prev => prev === msg.id ? null : msg.id)}
+                                className="p-1.5 rounded-full text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 transition-colors"
+                              >
+                                <Smile className="w-3.5 h-3.5" />
+                              </button>
+                              {openReactionPickerId === msg.id && (
+                                <ReactionPicker
+                                  isOwn={isOwn}
+                                  onSelect={(emoji) => toggleReaction.mutate({ conversationId: msg.conversationId, messageId: msg.id, emoji })}
+                                  onClose={() => setOpenReactionPickerId(null)}
+                                />
+                              )}
+                            </div>
                             <button
                               title="Reply"
                               onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
@@ -701,6 +734,32 @@ export default function Home() {
                               {msg.content}
                             </div>
                           )}
+                          {/* Reaction pills */}
+                          {msg.reactions && msg.reactions.length > 0 && (
+                            <div className={cn("flex flex-wrap gap-1 mt-1", isOwn ? "justify-end" : "justify-start")}>
+                              {msg.reactions.map(({ emoji, count, userIds }) => {
+                                const reacted = userIds.includes(user?.id ?? "");
+                                return (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => toggleReaction.mutate({ conversationId: msg.conversationId, messageId: msg.id, emoji })}
+                                    className={cn(
+                                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all active:scale-90",
+                                      reacted
+                                        ? "bg-primary/20 border-primary/40 text-primary font-medium"
+                                        : "bg-secondary border-border text-foreground hover:bg-secondary/80"
+                                    )}
+                                    title={reacted ? "Remove reaction" : "React"}
+                                  >
+                                    <span>{emoji}</span>
+                                    {count > 1 && <span>{count}</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
                           <span className="text-[10px] text-muted-foreground mt-1 px-1">
                             {format(new Date(msg.createdAt), "h:mm a")}
                           </span>
@@ -712,6 +771,22 @@ export default function Home() {
                             "flex items-center self-center gap-0.5 transition-all shrink-0",
                             hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
                           )}>
+                            <div className="relative">
+                              <button
+                                title="React"
+                                onClick={() => setOpenReactionPickerId(prev => prev === msg.id ? null : msg.id)}
+                                className="p-1.5 rounded-full text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 transition-colors"
+                              >
+                                <Smile className="w-3.5 h-3.5" />
+                              </button>
+                              {openReactionPickerId === msg.id && (
+                                <ReactionPicker
+                                  isOwn={isOwn}
+                                  onSelect={(emoji) => toggleReaction.mutate({ conversationId: msg.conversationId, messageId: msg.id, emoji })}
+                                  onClose={() => setOpenReactionPickerId(null)}
+                                />
+                              )}
+                            </div>
                             <button
                               title="Reply"
                               onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}

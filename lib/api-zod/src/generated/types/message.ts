@@ -6,6 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
+
 export interface Message {
   id: number;
   conversationId: number;
@@ -18,4 +24,5 @@ export interface Message {
   replyToId?: number | null;
   replyToContent?: string | null;
   replyToSenderFirstName?: string | null;
+  reactions?: MessageReaction[];
 }
