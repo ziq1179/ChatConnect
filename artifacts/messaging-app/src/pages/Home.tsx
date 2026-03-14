@@ -640,86 +640,9 @@ export default function Home() {
                 )}
               </AnimatePresence>
 
-              <form onSubmit={handleSend} className="flex items-center gap-2">
-                {/* Emoji button */}
-                <div className="relative" ref={emojiPickerRef}>
-                  <button
-                    type="button"
-                    onClick={() => { setShowEmojiPicker(p => !p); setShowGifPicker(false); }}
-                    className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    title="Emoji"
-                  >
-                    <Smile className="w-5 h-5" />
-                  </button>
-                  {showEmojiPicker && (
-                    <div className="absolute bottom-12 left-0 z-50">
-                      <EmojiPicker
-                        theme={Theme.DARK}
-                        onEmojiClick={(emojiData) => {
-                          setMessageText(prev => prev + emojiData.emoji);
-                          inputRef.current?.focus();
-                        }}
-                        width={300}
-                        height={380}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* GIF button */}
-                <button
-                  type="button"
-                  onClick={() => { setShowGifPicker(p => !p); setShowEmojiPicker(false); }}
-                  className={cn(
-                    "px-2 py-1 rounded-lg text-xs font-bold border transition-colors",
-                    showGifPicker
-                      ? "bg-primary text-white border-primary"
-                      : "text-muted-foreground border-border hover:text-foreground hover:border-foreground"
-                  )}
-                  title="Send a GIF"
-                >
-                  GIF
-                </button>
-
-                {/* Hidden image file input */}
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageSelected}
-                />
-
-                {/* Image button */}
-                <button
-                  type="button"
-                  disabled={isCompressing || !activeConversationId}
-                  onClick={() => imageInputRef.current?.click()}
-                  className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
-                  title="Send a photo"
-                >
-                  {isCompressing
-                    ? <Loader2 className="w-5 h-5 animate-spin" />
-                    : <ImagePlus className="w-5 h-5" />}
-                </button>
-
-                {/* Video link button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const url = prompt("Paste a YouTube, Vimeo, or direct video link:");
-                    if (url?.trim() && activeConversationId) {
-                      sendMessage.mutate({ conversationId: activeConversationId, data: { content: url.trim() } });
-                    }
-                  }}
-                  className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  title="Share a video link"
-                >
-                  <Video className="w-5 h-5" />
-                </button>
-
-                {/* Text input */}
-                <div className="flex-1 relative">
+              <form onSubmit={handleSend} className="flex flex-col gap-2">
+                {/* Text input row */}
+                <div className="relative">
                   <input
                     ref={inputRef}
                     type="text"
@@ -734,6 +657,86 @@ export default function Home() {
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-primary text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-md"
                   >
                     {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+                  </button>
+                </div>
+
+                {/* Media / action icons — wraps on small widths */}
+                <div className="flex flex-wrap items-center gap-1 px-1">
+                  {/* Emoji button */}
+                  <div className="relative" ref={emojiPickerRef}>
+                    <button
+                      type="button"
+                      onClick={() => { setShowEmojiPicker(p => !p); setShowGifPicker(false); }}
+                      className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                      title="Emoji"
+                    >
+                      <Smile className="w-5 h-5" />
+                    </button>
+                    {showEmojiPicker && (
+                      <div className="absolute bottom-10 left-0 z-50">
+                        <EmojiPicker
+                          theme={Theme.DARK}
+                          onEmojiClick={(emojiData) => {
+                            setMessageText(prev => prev + emojiData.emoji);
+                            inputRef.current?.focus();
+                          }}
+                          width={300}
+                          height={380}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* GIF button */}
+                  <button
+                    type="button"
+                    onClick={() => { setShowGifPicker(p => !p); setShowEmojiPicker(false); }}
+                    className={cn(
+                      "px-2 py-1 rounded-lg text-xs font-bold border transition-colors",
+                      showGifPicker
+                        ? "bg-primary text-white border-primary"
+                        : "text-muted-foreground border-border hover:text-foreground hover:border-foreground"
+                    )}
+                    title="Send a GIF"
+                  >
+                    GIF
+                  </button>
+
+                  {/* Hidden image file input */}
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageSelected}
+                  />
+
+                  {/* Image button */}
+                  <button
+                    type="button"
+                    disabled={isCompressing || !activeConversationId}
+                    onClick={() => imageInputRef.current?.click()}
+                    className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+                    title="Send a photo"
+                  >
+                    {isCompressing
+                      ? <Loader2 className="w-5 h-5 animate-spin" />
+                      : <ImagePlus className="w-5 h-5" />}
+                  </button>
+
+                  {/* Video link button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = prompt("Paste a YouTube, Vimeo, or direct video link:");
+                      if (url?.trim() && activeConversationId) {
+                        sendMessage.mutate({ conversationId: activeConversationId, data: { content: url.trim() } });
+                      }
+                    }}
+                    className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title="Share a video link"
+                  >
+                    <Video className="w-5 h-5" />
                   </button>
                 </div>
               </form>
