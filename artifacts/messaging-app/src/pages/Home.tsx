@@ -174,11 +174,12 @@ export default function Home() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Sidebar */}
+      {/* Sidebar — on mobile: occupies full screen and toggles with the chat area.
+           No absolute positioning to avoid iOS Safari touch-event clipping. */}
       <div 
         className={cn(
-          "h-full flex-shrink-0 flex-col border-r border-border bg-card transition-all duration-300 absolute md:relative z-20 w-full md:w-80 lg:w-96",
-          isSidebarOpen ? "flex left-0" : "-left-full md:left-0"
+          "h-full flex-shrink-0 flex-col border-r border-border bg-card w-full md:w-80 lg:w-96",
+          isSidebarOpen ? "flex" : "hidden md:flex"
         )}
       >
         <div className="p-4 border-b border-border flex items-center justify-between bg-card/50 backdrop-blur-sm sticky top-0 z-10">
@@ -287,8 +288,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-background relative z-10">
+      {/* Main Chat Area — on mobile: only shown when sidebar is closed */}
+      <div className={cn(
+        "flex-1 flex-col h-full min-w-0 bg-background",
+        isSidebarOpen ? "hidden md:flex" : "flex"
+      )}>
         {activeConversationId ? (
           <>
             {/* Chat Header */}
