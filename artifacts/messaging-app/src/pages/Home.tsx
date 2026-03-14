@@ -402,7 +402,7 @@ export default function Home() {
                               />
                             </div>
                           ) : isEmojiOnly(msg.content) ? (
-                            <div className="text-[2em] leading-tight select-text px-1">
+                            <div className="text-5xl leading-none select-text py-1">
                               {msg.content}
                             </div>
                           ) : (
