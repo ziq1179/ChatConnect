@@ -304,16 +304,21 @@ router.get("/conversations/:conversationId/messages", async (req, res): Promise<
     .orderBy(messagesTable.createdAt);
 
   const messageIds = messages.map((m) => m.id);
-  const allReactions = messageIds.length > 0
-    ? await db
+  let allReactions: { messageId: number; userId: string; emoji: string }[] = [];
+  if (messageIds.length > 0) {
+    try {
+      allReactions = await db
         .select({
           messageId: messageReactionsTable.messageId,
           userId: messageReactionsTable.userId,
           emoji: messageReactionsTable.emoji,
         })
         .from(messageReactionsTable)
-        .where(inArray(messageReactionsTable.messageId, messageIds))
-    : [];
+        .where(inArray(messageReactionsTable.messageId, messageIds));
+    } catch {
+      // table may not exist yet in older deployments — skip reactions gracefully
+    }
+  }
 
   // Group reactions by messageId → emoji → { count, userIds }
   const reactionsByMessage = new Map<number, Map<string, { count: number; userIds: string[] }>>();
