@@ -11,12 +11,16 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { NewChatDialog } from "@/components/NewChatDialog";
+import { GifPicker } from "@/components/GifPicker";
 import { cn } from "@/lib/utils";
+
+const GIF_URL_PATTERN = /^https:\/\/media\d*\.giphy\.com\//;
 
 function formatMessageTime(dateStr: string) {
   const date = new Date(dateStr);
@@ -37,6 +41,10 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const lastPingSentAt = useRef<number>(0);
   const stopTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -130,11 +138,35 @@ export default function Home() {
     if (!messageText.trim() || !activeConversationId) return;
     if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
     lastPingSentAt.current = 0;
+    const text = messageText;
+    setMessageText("");
     sendMessage.mutate({ 
       conversationId: activeConversationId, 
-      data: { content: messageText } 
+      data: { content: text } 
+    });
+    inputRef.current?.focus();
+  };
+
+  const handleGifSelect = (url: string) => {
+    if (!activeConversationId) return;
+    setShowGifPicker(false);
+    sendMessage.mutate({
+      conversationId: activeConversationId,
+      data: { content: url },
     });
   };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showEmojiPicker]);
 
   const typingLabel = typingUsers.length === 1
     ? `${typingUsers[0]} is typing`
@@ -351,16 +383,27 @@ export default function Home() {
                           {showAvatar && (
                             <span className="text-xs text-muted-foreground ml-1 mb-1">{msg.senderFirstName}</span>
                           )}
-                          <div
-                            className={cn(
-                              "px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed break-words",
-                              isOwn 
-                                ? "bg-gradient-to-br from-primary to-violet-500 text-white rounded-br-sm shadow-sm" 
-                                : "bg-secondary text-secondary-foreground rounded-bl-sm border border-white/5"
-                            )}
-                          >
-                            {msg.content}
-                          </div>
+                          {GIF_URL_PATTERN.test(msg.content) ? (
+                            <div className={cn("rounded-2xl overflow-hidden shadow-sm", isOwn ? "rounded-br-sm" : "rounded-bl-sm")}>
+                              <img
+                                src={msg.content}
+                                alt="GIF"
+                                className="max-w-[220px] w-full object-cover block"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className={cn(
+                                "px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed break-words",
+                                isOwn 
+                                  ? "bg-gradient-to-br from-primary to-violet-500 text-white rounded-br-sm shadow-sm" 
+                                  : "bg-secondary text-secondary-foreground rounded-bl-sm border border-white/5"
+                              )}
+                            >
+                              {msg.content}
+                            </div>
+                          )}
                           <span className="text-[10px] text-muted-foreground mt-1 px-1">
                             {format(new Date(msg.createdAt), "h:mm a")}
                           </span>
@@ -402,21 +445,81 @@ export default function Home() {
                   )}
                 </AnimatePresence>
               </div>
-              <form onSubmit={handleSend} className="relative flex items-center">
-                <input
-                  type="text"
-                  value={messageText}
-                  onChange={handleInputChange}
-                  placeholder="Type a message..."
-                  className="w-full pl-5 pr-14 py-4 bg-secondary/50 border border-border rounded-full text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
-                />
+
+              {/* GIF picker popup */}
+              <AnimatePresence>
+                {showGifPicker && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.15 }}
+                    className="mb-2"
+                  >
+                    <GifPicker onSelect={handleGifSelect} onClose={() => setShowGifPicker(false)} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleSend} className="flex items-center gap-2">
+                {/* Emoji button */}
+                <div className="relative" ref={emojiPickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmojiPicker(p => !p); setShowGifPicker(false); }}
+                    className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title="Emoji"
+                  >
+                    <Smile className="w-5 h-5" />
+                  </button>
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-12 left-0 z-50">
+                      <EmojiPicker
+                        theme={Theme.DARK}
+                        onEmojiClick={(emojiData) => {
+                          setMessageText(prev => prev + emojiData.emoji);
+                          inputRef.current?.focus();
+                        }}
+                        width={300}
+                        height={380}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* GIF button */}
                 <button
-                  type="submit"
-                  disabled={!messageText.trim() || sendMessage.isPending}
-                  className="absolute right-2 p-2.5 bg-primary text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-md"
+                  type="button"
+                  onClick={() => { setShowGifPicker(p => !p); setShowEmojiPicker(false); }}
+                  className={cn(
+                    "px-2 py-1 rounded-lg text-xs font-bold border transition-colors",
+                    showGifPicker
+                      ? "bg-primary text-white border-primary"
+                      : "text-muted-foreground border-border hover:text-foreground hover:border-foreground"
+                  )}
+                  title="Send a GIF"
                 >
-                  {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+                  GIF
                 </button>
+
+                {/* Text input */}
+                <div className="flex-1 relative">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={messageText}
+                    onChange={handleInputChange}
+                    placeholder="Type a message..."
+                    className="w-full pl-5 pr-14 py-3.5 bg-secondary/50 border border-border rounded-full text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!messageText.trim() || sendMessage.isPending}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-primary text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-md"
+                  >
+                    {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+                  </button>
+                </div>
               </form>
             </div>
           </>
