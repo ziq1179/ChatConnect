@@ -11,6 +11,7 @@ export interface Message {
   conversationId: number;
   senderId: string;
   content: string;
+  deleted?: boolean;
   createdAt: Date;
   senderFirstName: string;
   senderLastName: string;

@@ -172,6 +172,14 @@ export const SendMessageBody = zod.object({
 });
 
 /**
+ * @summary Delete a message
+ */
+export const DeleteMessageParams = zod.object({
+  conversationId: zod.coerce.number(),
+  messageId: zod.coerce.number(),
+});
+
+/**
  * @summary Search for users to start a conversation with
  */
 export const SearchUsersQueryParams = zod.object({

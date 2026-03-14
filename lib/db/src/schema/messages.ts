@@ -30,6 +30,7 @@ export const messagesTable = pgTable("messages", {
   senderId: text("sender_id").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const insertMessageSchema = createInsertSchema(messagesTable).omit({ id: true, createdAt: true });

@@ -3,6 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db, conversationsTable, conversationParticipantsTable, messagesTable, usersTable } from "@workspace/db";
 import {
   CreateConversationBody,
+  DeleteMessageParams,
   GetConversationParams,
   ListMessagesParams,
   SendMessageBody,
@@ -235,6 +236,7 @@ router.get("/conversations/:conversationId/messages", async (req, res): Promise<
       senderId: messagesTable.senderId,
       content: messagesTable.content,
       createdAt: messagesTable.createdAt,
+      deletedAt: messagesTable.deletedAt,
       senderFirstName: usersTable.firstName,
       senderLastName: usersTable.lastName,
     })
@@ -247,7 +249,8 @@ router.get("/conversations/:conversationId/messages", async (req, res): Promise<
     id: m.id,
     conversationId: m.conversationId,
     senderId: m.senderId,
-    content: m.content,
+    content: m.deletedAt ? "" : m.content,
+    deleted: !!m.deletedAt,
     createdAt: m.createdAt.toISOString(),
     senderFirstName: m.senderFirstName ?? "",
     senderLastName: m.senderLastName ?? "",
@@ -314,6 +317,54 @@ router.post("/conversations/:conversationId/messages", async (req, res): Promise
     senderFirstName: sender?.firstName ?? "",
     senderLastName: sender?.lastName ?? "",
   });
+});
+
+// DELETE /api/conversations/:conversationId/messages/:messageId — soft-delete a message (sender only)
+router.delete("/conversations/:conversationId/messages/:messageId", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const params = DeleteMessageParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const { conversationId, messageId } = params.data;
+  const userId = req.user.id;
+
+  const message = await db
+    .select()
+    .from(messagesTable)
+    .where(and(
+      eq(messagesTable.id, messageId),
+      eq(messagesTable.conversationId, conversationId),
+    ))
+    .then((rows) => rows[0]);
+
+  if (!message) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  if (message.senderId !== userId) {
+    res.status(403).json({ error: "You can only delete your own messages" });
+    return;
+  }
+
+  if (message.deletedAt) {
+    res.status(409).json({ error: "Message already deleted" });
+    return;
+  }
+
+  await db
+    .update(messagesTable)
+    .set({ deletedAt: new Date() })
+    .where(eq(messagesTable.id, messageId));
+
+  res.json({ ok: true });
 });
 
 // POST /api/conversations/:id/typing — called while the user is typing

@@ -8,10 +8,10 @@ import {
   getListMessagesQueryKey,
   getListConversationsQueryKey
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -53,6 +53,7 @@ export default function Home() {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastPingSentAt = useRef<number>(0);
@@ -88,6 +89,20 @@ export default function Home() {
         setTimeout(() => scrollToBottom(), 50);
       }
     }
+  });
+
+  const deleteMessage = useMutation({
+    mutationFn: async ({ conversationId, messageId }: { conversationId: number; messageId: number }) => {
+      const res = await fetch(`/api/conversations/${conversationId}/messages/${messageId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete message");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListMessagesQueryKey(activeConversationId as number) });
+      queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+    },
   });
 
   const scrollToBottom = () => {
@@ -374,9 +389,11 @@ export default function Home() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       key={msg.id} 
-                      className={cn("flex w-full", isOwn ? "justify-end" : "justify-start")}
+                      className={cn("flex w-full group/msg", isOwn ? "justify-end" : "justify-start")}
+                      onMouseEnter={() => isOwn && !msg.deleted && setHoveredMessageId(msg.id)}
+                      onMouseLeave={() => setHoveredMessageId(null)}
                     >
-                      <div className={cn("flex max-w-[75%] gap-2", isOwn ? "flex-row-reverse" : "flex-row")}>
+                      <div className={cn("flex items-end max-w-[75%] gap-1.5", isOwn ? "flex-row-reverse" : "flex-row")}>
                         {!isOwn && (
                           <div className="w-8 flex-shrink-0 flex items-end">
                             {showAvatar ? (
@@ -388,12 +405,37 @@ export default function Home() {
                             ) : <div className="w-8" />}
                           </div>
                         )}
+
+                        {/* Delete button — visible on hover for own non-deleted messages */}
+                        {isOwn && !msg.deleted && (
+                          <button
+                            className={cn(
+                              "p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all shrink-0",
+                              hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                            )}
+                            title="Delete message"
+                            onClick={() => {
+                              if (confirm("Delete this message for everyone?")) {
+                                deleteMessage.mutate({ conversationId: msg.conversationId, messageId: msg.id });
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         
                         <div className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
                           {showAvatar && (
                             <span className="text-xs text-muted-foreground ml-1 mb-1">{msg.senderFirstName}</span>
                           )}
-                          {GIF_URL_PATTERN.test(msg.content) ? (
+                          {msg.deleted ? (
+                            <div className={cn(
+                              "px-4 py-2.5 rounded-2xl text-[14px] italic text-muted-foreground border border-dashed",
+                              isOwn ? "rounded-br-sm border-border/60" : "rounded-bl-sm border-border/60"
+                            )}>
+                              Message deleted
+                            </div>
+                          ) : GIF_URL_PATTERN.test(msg.content) ? (
                             <div className={cn("rounded-2xl overflow-hidden shadow-sm", isOwn ? "rounded-br-sm" : "rounded-bl-sm")}>
                               <img
                                 src={msg.content}
