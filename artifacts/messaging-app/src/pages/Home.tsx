@@ -11,13 +11,14 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { NewChatDialog } from "@/components/NewChatDialog";
 import { GifPicker } from "@/components/GifPicker";
+import { VideoMessage, isVideoUrl } from "@/components/VideoMessage";
 import { cn } from "@/lib/utils";
 
 const GIF_URL_PATTERN = /^https:\/\/(media\d*\.giphy\.com|media\.tenor\.com)\//;
@@ -401,6 +402,8 @@ export default function Home() {
                                 loading="lazy"
                               />
                             </div>
+                          ) : isVideoUrl(msg.content) ? (
+                            <VideoMessage url={msg.content} isOwn={isOwn} />
                           ) : isEmojiOnly(msg.content) ? (
                             <div className="text-5xl leading-none select-text py-1">
                               {msg.content}
@@ -513,6 +516,21 @@ export default function Home() {
                   title="Send a GIF"
                 >
                   GIF
+                </button>
+
+                {/* Video link button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = prompt("Paste a YouTube, Vimeo, or direct video link:");
+                    if (url?.trim() && activeConversationId) {
+                      sendMessage.mutate({ conversationId: activeConversationId, data: { content: url.trim() } });
+                    }
+                  }}
+                  className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  title="Share a video link"
+                >
+                  <Video className="w-5 h-5" />
                 </button>
 
                 {/* Text input */}
