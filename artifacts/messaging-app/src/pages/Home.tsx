@@ -754,59 +754,78 @@ export default function Home() {
               exit={{ scale: 0.95, opacity: 0, y: 8 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5"
+              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
             >
-              {/* Header */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <UserPlus className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-foreground text-base">Invite people</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Share this link with anyone</p>
-                  </div>
-                </div>
+              {/* Gradient header banner */}
+              <div className="relative bg-gradient-to-br from-primary/20 via-violet-500/10 to-transparent px-6 pt-6 pb-5">
                 <button
                   onClick={() => setShowInviteModal(false)}
-                  className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  className="absolute top-4 right-4 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-lg shadow-primary/30">
+                    <UserPlus className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="font-display font-semibold text-foreground text-base leading-tight">Invite to Connect</h2>
+                    <p className="text-xs text-muted-foreground">Free forever · No credit card</p>
+                  </div>
+                </div>
+                {/* Intro blurb */}
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Share this link and your friend can create a free account, see your name as the person who invited them, and start chatting instantly.
+                </p>
               </div>
 
-              {/* Link box */}
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary border border-border">
-                <span className="flex-1 text-sm text-foreground font-mono truncate select-all">
-                  {`${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`}
-                </span>
-                <button
-                  onClick={() => {
-                    const link = `${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`;
-                    navigator.clipboard.writeText(link).then(() => {
-                      setCopiedInviteLink(true);
-                      setTimeout(() => setCopiedInviteLink(false), 2500);
-                    });
-                  }}
-                  className={cn(
-                    "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                    copiedInviteLink
-                      ? "bg-green-500/15 text-green-500 border border-green-500/30"
-                      : "bg-primary text-white hover:opacity-90"
-                  )}
-                >
-                  {copiedInviteLink ? (
-                    <><Check className="w-3.5 h-3.5" /> Copied!</>
-                  ) : (
-                    <><Copy className="w-3.5 h-3.5" /> Copy</>
-                  )}
-                </button>
-              </div>
+              <div className="px-6 pb-6 pt-4 flex flex-col gap-4">
+                {/* Pre-written message */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Suggested message</p>
+                  <div className="p-3 rounded-xl bg-secondary border border-border text-sm text-foreground leading-relaxed select-all whitespace-pre-wrap">
+                    {`Hey! I've been using Connect to chat — it's simple, free, and great for sharing photos, GIFs and videos too.\n\nJoin me here: ${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`}
+                  </div>
+                </div>
 
-              {/* What they'll see */}
-              <p className="text-xs text-muted-foreground text-center leading-relaxed">
-                Anyone with this link can create a free account and start chatting with you on Connect.
-              </p>
+                {/* Copy buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const msg = `Hey! I've been using Connect to chat — it's simple, free, and great for sharing photos, GIFs and videos too.\n\nJoin me here: ${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`;
+                      navigator.clipboard.writeText(msg).then(() => {
+                        setCopiedInviteLink(true);
+                        setTimeout(() => setCopiedInviteLink(false), 2500);
+                      });
+                    }}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all",
+                      copiedInviteLink
+                        ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
+                        : "bg-gradient-to-r from-primary to-violet-500 text-white hover:opacity-90 shadow-md shadow-primary/20"
+                    )}
+                  >
+                    {copiedInviteLink ? (
+                      <><Check className="w-4 h-4" /> Copied!</>
+                    ) : (
+                      <><Copy className="w-4 h-4" /> Copy message</>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`;
+                      navigator.clipboard.writeText(link).then(() => {
+                        setCopiedInviteLink(true);
+                        setTimeout(() => setCopiedInviteLink(false), 2500);
+                      });
+                    }}
+                    className="px-4 py-2.5 rounded-xl text-sm font-semibold border border-border bg-secondary hover:bg-muted text-foreground transition-all"
+                    title="Copy link only"
+                  >
+                    Link only
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
