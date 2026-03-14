@@ -11,6 +11,31 @@ import {
 
 const router: IRouter = Router();
 
+// In-memory typing store: conversationId -> userId -> { firstName, timestamp }
+// No DB needed — typing state is transient (expires after 4 seconds)
+const typingStore = new Map<number, Map<string, { firstName: string; timestamp: number }>>();
+const TYPING_TTL_MS = 4000;
+
+function setTyping(conversationId: number, userId: string, firstName: string) {
+  if (!typingStore.has(conversationId)) {
+    typingStore.set(conversationId, new Map());
+  }
+  typingStore.get(conversationId)!.set(userId, { firstName, timestamp: Date.now() });
+}
+
+function getTypingUsers(conversationId: number, excludeUserId: string): string[] {
+  const conv = typingStore.get(conversationId);
+  if (!conv) return [];
+  const now = Date.now();
+  const result: string[] = [];
+  for (const [uid, { firstName, timestamp }] of conv.entries()) {
+    if (uid !== excludeUserId && now - timestamp < TYPING_TTL_MS) {
+      result.push(firstName);
+    }
+  }
+  return result;
+}
+
 async function buildConversationResponse(convId: number) {
   const conversation = await db
     .select()
@@ -287,6 +312,48 @@ router.post("/conversations/:conversationId/messages", async (req, res): Promise
     senderFirstName: sender?.firstName ?? "",
     senderLastName: sender?.lastName ?? "",
   });
+});
+
+// POST /api/conversations/:id/typing — called while the user is typing
+router.post("/conversations/:id/typing", async (req, res): Promise<void> => {
+  const userId = req.session.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const conversationId = parseInt(req.params.id, 10);
+  if (isNaN(conversationId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const participant = await db
+    .select()
+    .from(conversationParticipantsTable)
+    .where(and(
+      eq(conversationParticipantsTable.conversationId, conversationId),
+      eq(conversationParticipantsTable.userId, userId),
+    ))
+    .then((rows) => rows[0]);
+
+  if (!participant) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const user = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .then((rows) => rows[0]);
+
+  if (user) setTyping(conversationId, userId, user.firstName);
+
+  res.json({ ok: true });
+});
+
+// GET /api/conversations/:id/typing — returns names of users currently typing (excluding caller)
+router.get("/conversations/:id/typing", async (req, res): Promise<void> => {
+  const userId = req.session.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const conversationId = parseInt(req.params.id, 10);
+  if (isNaN(conversationId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const typingUsers = getTypingUsers(conversationId, userId);
+  res.json({ typing: typingUsers });
 });
 
 export default router;

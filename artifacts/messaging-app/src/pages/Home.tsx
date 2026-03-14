@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { 
   useListConversations, 
@@ -34,6 +34,9 @@ export default function Home() {
   const [messageText, setMessageText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const lastPingSentAt = useRef<number>(0);
+  const stopTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close sidebar on mobile when a conversation is selected
   useEffect(() => {
@@ -75,14 +78,69 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
+  // Poll for who's typing every 2 seconds when a conversation is active
+  useEffect(() => {
+    if (!activeConversationId) { setTypingUsers([]); return; }
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/conversations/${activeConversationId}/typing`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setTypingUsers(data.typing ?? []);
+        }
+      } catch { /* ignore */ }
+    };
+    poll();
+    const interval = setInterval(poll, 2000);
+    return () => clearInterval(interval);
+  }, [activeConversationId]);
+
+  // Reset typing state when switching conversations
+  useEffect(() => { setTypingUsers([]); }, [activeConversationId]);
+
+  const sendTypingPing = useCallback(async (convId: number) => {
+    const now = Date.now();
+    // Rate-limit: send at most once every 2 seconds
+    if (now - lastPingSentAt.current < 2000) return;
+    lastPingSentAt.current = now;
+    try {
+      await fetch(`/api/conversations/${convId}/typing`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageText(e.target.value);
+    if (activeConversationId && e.target.value.trim()) {
+      sendTypingPing(activeConversationId);
+      // Clear any pending stop-typing timer and restart it
+      if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
+      stopTypingTimer.current = setTimeout(() => {
+        lastPingSentAt.current = 0; // Allow next keystroke to ping immediately
+      }, 3000);
+    }
+  };
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageText.trim() || !activeConversationId) return;
+    if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
+    lastPingSentAt.current = 0;
     sendMessage.mutate({ 
       conversationId: activeConversationId, 
       data: { content: messageText } 
     });
   };
+
+  const typingLabel = typingUsers.length === 1
+    ? `${typingUsers[0]} is typing`
+    : typingUsers.length === 2
+    ? `${typingUsers[0]} and ${typingUsers[1]} are typing`
+    : typingUsers.length > 2
+    ? "Several people are typing"
+    : null;
 
   const activeConversation = conversations?.find(c => c.id === activeConversationId);
   const getConversationName = (conv: any) => {
@@ -262,12 +320,39 @@ export default function Home() {
             </div>
 
             {/* Chat Input */}
-            <div className="p-4 bg-background border-t border-border">
+            <div className="px-4 pb-4 bg-background border-t border-border pt-2">
+              {/* Typing indicator */}
+              <div className="h-5 mb-1 px-1">
+                <AnimatePresence>
+                  {typingLabel && (
+                    <motion.div
+                      key="typing"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                    >
+                      <span className="flex gap-0.5">
+                        {[0, 1, 2].map((i) => (
+                          <motion.span
+                            key={i}
+                            className="inline-block w-1 h-1 rounded-full bg-muted-foreground"
+                            animate={{ y: [0, -3, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+                          />
+                        ))}
+                      </span>
+                      <span>{typingLabel}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               <form onSubmit={handleSend} className="relative flex items-center">
                 <input
                   type="text"
                   value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
+                  onChange={handleInputChange}
                   placeholder="Type a message..."
                   className="w-full pl-5 pr-14 py-4 bg-secondary/50 border border-border rounded-full text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
                 />
