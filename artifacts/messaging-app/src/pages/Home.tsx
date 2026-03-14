@@ -215,7 +215,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-[100dvh] overflow-hidden bg-background">
       {/* Sidebar — on mobile: occupies full screen and toggles with the chat area.
            No absolute positioning to avoid iOS Safari touch-event clipping. */}
       <div 
@@ -224,7 +224,7 @@ export default function Home() {
           isSidebarOpen ? "flex" : "hidden md:flex"
         )}
       >
-        <div className="p-4 border-b border-border flex items-center justify-between bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="p-4 border-b border-border flex items-center justify-between bg-card/50 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-3">
             <AvatarUpload
               name={`${user?.firstName} ${user?.lastName}`}
@@ -338,7 +338,7 @@ export default function Home() {
         {activeConversationId ? (
           <>
             {/* Chat Header */}
-            <div className="h-16 px-4 flex items-center border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+            <div className="h-16 px-4 flex items-center border-b border-border bg-card/50 backdrop-blur-sm shrink-0">
               <button 
                 className="md:hidden p-2 -ml-2 mr-2 rounded-full hover:bg-secondary text-foreground"
                 onClick={() => setIsSidebarOpen(true)}
