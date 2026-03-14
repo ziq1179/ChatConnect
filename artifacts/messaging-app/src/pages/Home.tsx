@@ -727,7 +727,7 @@ export default function Home() {
                               className={cn(
                                 "px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed break-words",
                                 isOwn 
-                                  ? "bg-gradient-to-br from-primary to-violet-500 text-white rounded-br-sm shadow-sm" 
+                                  ? "bg-gradient-to-br from-violet-600 to-purple-500 text-white rounded-br-sm shadow-[0_2px_18px_rgba(124,58,237,0.45)]" 
                                   : "bg-secondary text-secondary-foreground rounded-bl-sm border border-white/5"
                               )}
                             >
@@ -928,7 +928,7 @@ export default function Home() {
                     <button
                       type="submit"
                       disabled={!messageText.trim() || sendMessage.isPending}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-primary text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-md"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-gradient-to-br from-violet-600 to-purple-500 text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-[0_0_16px_rgba(124,58,237,0.55)]"
                     >
                       {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
                     </button>
