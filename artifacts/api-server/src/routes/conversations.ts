@@ -415,6 +415,61 @@ router.delete("/conversations/:conversationId/messages/:messageId", async (req, 
   res.json({ ok: true });
 });
 
+// POST /api/conversations/:id/participants — add members to a group (participants only)
+router.post("/conversations/:id/participants", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const conversationId = parseInt(req.params.id, 10);
+  if (isNaN(conversationId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { userIds } = req.body as { userIds?: string[] };
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    res.status(400).json({ error: "userIds must be a non-empty array" }); return;
+  }
+
+  const userId = req.user.id;
+
+  // Verify conversation exists and is a group
+  const conversation = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, conversationId))
+    .then((rows) => rows[0]);
+
+  if (!conversation) { res.status(404).json({ error: "Conversation not found" }); return; }
+  if (!conversation.isGroup) { res.status(400).json({ error: "Can only add participants to group conversations" }); return; }
+
+  // Verify caller is a participant
+  const participation = await db
+    .select()
+    .from(conversationParticipantsTable)
+    .where(and(
+      eq(conversationParticipantsTable.conversationId, conversationId),
+      eq(conversationParticipantsTable.userId, userId),
+    ))
+    .then((rows) => rows[0]);
+
+  if (!participation) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  // Get existing participant IDs to skip duplicates
+  const existing = await db
+    .select({ userId: conversationParticipantsTable.userId })
+    .from(conversationParticipantsTable)
+    .where(eq(conversationParticipantsTable.conversationId, conversationId));
+
+  const existingIds = new Set(existing.map((p) => p.userId));
+  const newIds = userIds.filter((id) => !existingIds.has(id));
+
+  if (newIds.length > 0) {
+    await db.insert(conversationParticipantsTable).values(
+      newIds.map((uid) => ({ conversationId, userId: uid }))
+    );
+  }
+
+  const result = await buildConversationResponse(conversationId);
+  res.json(result);
+});
+
 // POST /api/conversations/:id/typing — called while the user is typing
 router.post("/conversations/:id/typing", async (req, res): Promise<void> => {
   const userId = req.session.userId;

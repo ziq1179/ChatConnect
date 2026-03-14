@@ -988,6 +988,7 @@ export default function Home() {
           conversationId={activeConversation.id}
           currentName={activeConversation.name}
           currentAvatarUrl={activeConversation.avatarUrl ?? null}
+          participants={activeConversation.participants ?? []}
           onSaved={() => {
             queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
           }}
