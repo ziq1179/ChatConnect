@@ -25,12 +25,12 @@ export default function AuthPage() {
     !new URLSearchParams(window.location.search).get("signup")
   );
   const { login, signup, isLoggingIn, isSigningUp, isAuthenticated } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
 
-  // When used as a standalone /login route, redirect home after auth succeeds
+  // Only redirect when used as the standalone /login page, not when embedded inside ProtectedRoute
   useEffect(() => {
-    if (isAuthenticated) navigate("/");
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated && location === "/login") navigate("/");
+  }, [isAuthenticated, location, navigate]);
 
   const [error, setError] = useState<string | null>(null);
 

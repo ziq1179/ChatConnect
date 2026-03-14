@@ -58,7 +58,8 @@ export default function Home() {
   const { user, logout, refreshUser } = useAuth();
   const [, setLocation] = useLocation();
   const params = useParams();
-  const activeConversationId = params.id ? parseInt(params.id, 10) : null;
+  const _parsedId = params.id ? parseInt(params.id, 10) : null;
+  const activeConversationId = _parsedId !== null && !isNaN(_parsedId) ? _parsedId : null;
   
   const queryClient = useQueryClient();
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -475,6 +476,8 @@ export default function Home() {
                             ? "Message deleted"
                             : IMAGE_DATA_URL_PATTERN.test(conv.lastMessage.content)
                             ? "📷 Photo"
+                            : AUDIO_DATA_URL_PATTERN.test(conv.lastMessage.content)
+                            ? "🎤 Voice message"
                             : GIF_URL_PATTERN.test(conv.lastMessage.content)
                             ? "GIF"
                             : isVideoUrl(conv.lastMessage.content)
