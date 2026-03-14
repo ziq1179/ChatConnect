@@ -210,7 +210,7 @@ export default function Home() {
            No absolute positioning to avoid iOS Safari touch-event clipping. */}
       <div 
         className={cn(
-          "h-full flex-shrink-0 flex-col border-r border-border bg-card w-full md:w-80 lg:w-96",
+          "flex-shrink-0 flex-col border-r border-border bg-card w-full md:w-80 lg:w-96 min-h-0 overflow-hidden",
           isSidebarOpen ? "flex" : "hidden md:flex"
         )}
       >
@@ -322,7 +322,7 @@ export default function Home() {
 
       {/* Main Chat Area — on mobile: only shown when sidebar is closed */}
       <div className={cn(
-        "flex-1 flex-col h-full min-w-0 bg-background",
+        "flex-1 flex-col min-h-0 min-w-0 bg-background overflow-hidden",
         isSidebarOpen ? "hidden md:flex" : "flex"
       )}>
         {activeConversationId ? (
@@ -346,7 +346,7 @@ export default function Home() {
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {isMessagesLoading ? (
                 <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
               ) : messages?.length === 0 ? (
