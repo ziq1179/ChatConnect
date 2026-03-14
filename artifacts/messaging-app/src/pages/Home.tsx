@@ -19,6 +19,7 @@ import { AvatarUpload } from "@/components/AvatarUpload";
 import { NewChatDialog } from "@/components/NewChatDialog";
 import { GifPicker } from "@/components/GifPicker";
 import { VideoMessage, isVideoUrl } from "@/components/VideoMessage";
+import { PhotoLightbox } from "@/components/PhotoLightbox";
 import { cn } from "@/lib/utils";
 
 import { compressImage } from "@/lib/compress-image";
@@ -59,6 +60,7 @@ export default function Home() {
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -399,7 +401,12 @@ export default function Home() {
               </button>
               {activeConversation && (
                 <div className="flex items-center gap-3">
-                  <Avatar name={getConversationName(activeConversation)} src={getConversationAvatar(activeConversation)} size="md" />
+                  <Avatar
+                    name={getConversationName(activeConversation)}
+                    src={getConversationAvatar(activeConversation)}
+                    size="md"
+                    onClick={() => { const s = getConversationAvatar(activeConversation); if (s) setLightboxSrc(s); }}
+                  />
                   <div className="font-display font-semibold text-foreground">
                     {getConversationName(activeConversation)}
                   </div>
@@ -477,9 +484,9 @@ export default function Home() {
                               <img
                                 src={msg.content}
                                 alt="Photo"
-                                className="max-w-[260px] w-full object-cover block cursor-pointer"
+                                className="max-w-[260px] w-full object-cover block cursor-pointer hover:brightness-90 transition-all"
                                 loading="lazy"
-                                onClick={() => window.open(msg.content, "_blank")}
+                                onClick={() => setLightboxSrc(msg.content)}
                               />
                             </div>
                           ) : GIF_URL_PATTERN.test(msg.content) ? (
@@ -764,6 +771,8 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PhotoLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }
