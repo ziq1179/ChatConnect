@@ -11,7 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -21,6 +21,7 @@ import { GifPicker } from "@/components/GifPicker";
 import { VideoMessage, isVideoUrl } from "@/components/VideoMessage";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
 import { GroupEditDialog } from "@/components/GroupEditDialog";
+import { ForwardDialog } from "@/components/ForwardDialog";
 import { cn } from "@/lib/utils";
 
 import { compressImage } from "@/lib/compress-image";
@@ -64,6 +65,7 @@ export default function Home() {
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showGroupEdit, setShowGroupEdit] = useState(false);
+  const [forwardingContent, setForwardingContent] = useState<string | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -474,7 +476,7 @@ export default function Home() {
                       animate={{ opacity: 1, y: 0 }}
                       key={msg.id} 
                       className={cn("flex w-full group/msg", isOwn ? "justify-end" : "justify-start")}
-                      onMouseEnter={() => isOwn && !msg.deleted && setHoveredMessageId(msg.id)}
+                      onMouseEnter={() => !msg.deleted && setHoveredMessageId(msg.id)}
                       onMouseLeave={() => setHoveredMessageId(null)}
                     >
                       <div className={cn("flex items-end max-w-[75%] gap-1.5", isOwn ? "flex-row-reverse" : "flex-row")}>
@@ -490,22 +492,31 @@ export default function Home() {
                           </div>
                         )}
 
-                        {/* Delete button — visible on hover for own non-deleted messages */}
+                        {/* Action buttons for OWN messages — sit to the right of the bubble (flex-row-reverse) */}
                         {isOwn && !msg.deleted && (
-                          <button
-                            className={cn(
-                              "p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all shrink-0",
-                              hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
-                            )}
-                            title="Delete message"
-                            onClick={() => {
-                              if (confirm("Delete this message for everyone?")) {
-                                deleteMessage.mutate({ conversationId: msg.conversationId, messageId: msg.id });
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className={cn(
+                            "flex items-center gap-0.5 transition-all shrink-0",
+                            hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                          )}>
+                            <button
+                              title="Forward message"
+                              onClick={() => setForwardingContent(msg.content)}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Forward className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              title="Delete message"
+                              onClick={() => {
+                                if (confirm("Delete this message for everyone?")) {
+                                  deleteMessage.mutate({ conversationId: msg.conversationId, messageId: msg.id });
+                                }
+                              }}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         )}
                         
                         <div className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
@@ -560,6 +571,22 @@ export default function Home() {
                             {format(new Date(msg.createdAt), "h:mm a")}
                           </span>
                         </div>
+
+                        {/* Action buttons for OTHERS' messages — sit to the right of the bubble (flex-row) */}
+                        {!isOwn && !msg.deleted && (
+                          <div className={cn(
+                            "flex items-center self-center transition-all shrink-0",
+                            hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                          )}>
+                            <button
+                              title="Forward message"
+                              onClick={() => setForwardingContent(msg.content)}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Forward className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -843,6 +870,14 @@ export default function Home() {
           }}
         />
       )}
+
+      <ForwardDialog
+        isOpen={forwardingContent !== null}
+        onClose={() => setForwardingContent(null)}
+        messageContent={forwardingContent ?? ""}
+        conversations={conversations ?? []}
+        currentUserId={user?.id ?? ""}
+      />
 
       <PhotoLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
