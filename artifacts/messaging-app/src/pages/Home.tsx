@@ -11,7 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -20,6 +20,7 @@ import { NewChatDialog } from "@/components/NewChatDialog";
 import { GifPicker } from "@/components/GifPicker";
 import { VideoMessage, isVideoUrl } from "@/components/VideoMessage";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
+import { GroupEditDialog } from "@/components/GroupEditDialog";
 import { cn } from "@/lib/utils";
 
 import { compressImage } from "@/lib/compress-image";
@@ -61,6 +62,7 @@ export default function Home() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [showGroupEdit, setShowGroupEdit] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -400,16 +402,26 @@ export default function Home() {
                 <Menu className="w-5 h-5" />
               </button>
               {activeConversation && (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <Avatar
                     name={getConversationName(activeConversation)}
                     src={getConversationAvatar(activeConversation)}
                     size="md"
                     onClick={() => { const s = getConversationAvatar(activeConversation); if (s) setLightboxSrc(s); }}
                   />
-                  <div className="font-display font-semibold text-foreground">
+                  <div className="font-display font-semibold text-foreground truncate">
                     {getConversationName(activeConversation)}
                   </div>
+                  {/* Edit button — only for groups (conversations with a name) */}
+                  {activeConversation.name && (
+                    <button
+                      onClick={() => setShowGroupEdit(true)}
+                      title="Edit group"
+                      className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -771,6 +783,19 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {activeConversation?.name && (
+        <GroupEditDialog
+          isOpen={showGroupEdit}
+          onClose={() => setShowGroupEdit(false)}
+          conversationId={activeConversation.id}
+          currentName={activeConversation.name}
+          currentAvatarUrl={activeConversation.avatarUrl ?? null}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+          }}
+        />
+      )}
 
       <PhotoLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>

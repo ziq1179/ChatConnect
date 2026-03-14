@@ -203,6 +203,51 @@ router.get("/conversations/:conversationId", async (req, res): Promise<void> => 
   res.json(result);
 });
 
+router.patch("/conversations/:conversationId", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const conversationId = parseInt(req.params.conversationId, 10);
+  if (isNaN(conversationId)) {
+    res.status(400).json({ error: "Invalid conversationId" });
+    return;
+  }
+
+  const userId = req.user.id;
+
+  const participation = await db
+    .select()
+    .from(conversationParticipantsTable)
+    .where(and(
+      eq(conversationParticipantsTable.conversationId, conversationId),
+      eq(conversationParticipantsTable.userId, userId)
+    ))
+    .then((rows) => rows[0]);
+
+  if (!participation) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const { name, avatarUrl } = req.body as { name?: string; avatarUrl?: string | null };
+  const updates: Partial<{ name: string | null; avatarUrl: string | null }> = {};
+
+  if (name !== undefined) updates.name = name ?? null;
+  if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl ?? null;
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "Nothing to update" });
+    return;
+  }
+
+  await db.update(conversationsTable).set(updates).where(eq(conversationsTable.id, conversationId));
+
+  const result = await buildConversationResponse(conversationId);
+  res.json(result);
+});
+
 router.get("/conversations/:conversationId/messages", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
