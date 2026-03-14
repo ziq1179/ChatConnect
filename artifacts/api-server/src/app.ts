@@ -12,6 +12,10 @@ const PgSession = connectPgSimple(session);
 
 const app: Express = express();
 
+// Trust Render's (and similar) reverse proxy so that
+// req.secure is correct and Secure cookies work over HTTPS
+app.set("trust proxy", 1);
+
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
 app.use(express.json());

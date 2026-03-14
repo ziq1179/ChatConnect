@@ -50,6 +50,17 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 
   req.session.userId = user.id;
 
+  await new Promise<void>((resolve, reject) => {
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error on signup:", err);
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+
   res.status(201).json({
     user: {
       id: user.id,
@@ -87,6 +98,17 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
 
   req.session.userId = user.id;
+
+  await new Promise<void>((resolve, reject) => {
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error on login:", err);
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
 
   res.json({
     user: {
