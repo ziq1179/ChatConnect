@@ -11,7 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward, Mic, Square } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -29,6 +29,13 @@ import { usePresence } from "@/hooks/use-presence";
 
 const GIF_URL_PATTERN = /^https:\/\/(media\d*\.giphy\.com|media\.tenor\.com)\//;
 const IMAGE_DATA_URL_PATTERN = /^data:image\//;
+const AUDIO_DATA_URL_PATTERN = /^data:audio\//;
+
+function formatRecordingDuration(sec: number) {
+  const m = Math.floor(sec / 60).toString().padStart(2, "0");
+  const s = (sec % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
 
 // Matches strings that contain only emoji characters (and whitespace between them)
 function isEmojiOnly(str: string): boolean {
@@ -72,6 +79,11 @@ export default function Home() {
   const lastPingSentAt = useRef<number>(0);
   const stopTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Close sidebar on mobile when a conversation is selected
   useEffect(() => {
@@ -135,6 +147,61 @@ export default function Home() {
     } finally {
       setIsCompressing(false);
     }
+  };
+
+  const startRecording = async () => {
+    if (!activeConversationId) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          if (activeConversationId) {
+            sendMessage.mutate({ conversationId: activeConversationId, data: { content: dataUrl } });
+          }
+        };
+        reader.readAsDataURL(blob);
+        stream.getTracks().forEach((t) => t.stop());
+        setIsRecording(false);
+        setRecordingDuration(0);
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => setRecordingDuration((d) => d + 1), 1000);
+    } catch {
+      alert("Microphone access was denied. Please allow it in your browser settings.");
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+  };
+
+  const cancelRecording = () => {
+    const rec = mediaRecorderRef.current;
+    if (rec) {
+      rec.ondataavailable = null;
+      rec.onstop = null;
+      try { rec.stop(); } catch { /* ignore */ }
+      mediaRecorderRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
   };
 
   useEffect(() => {
@@ -551,6 +618,20 @@ export default function Home() {
                             </div>
                           ) : isVideoUrl(msg.content) ? (
                             <VideoMessage url={msg.content} isOwn={isOwn} />
+                          ) : AUDIO_DATA_URL_PATTERN.test(msg.content) ? (
+                            <div className={cn(
+                              "px-3 py-2 rounded-2xl shadow-sm",
+                              isOwn
+                                ? "bg-gradient-to-br from-primary to-violet-500 rounded-br-sm"
+                                : "bg-secondary rounded-bl-sm border border-white/5"
+                            )}>
+                              <audio
+                                controls
+                                src={msg.content}
+                                className="h-9 max-w-[260px] w-full"
+                                style={{ colorScheme: "dark" }}
+                              />
+                            </div>
                           ) : isEmojiOnly(msg.content) ? (
                             <div className="text-5xl leading-none select-text py-1">
                               {msg.content}
@@ -641,24 +722,52 @@ export default function Home() {
               </AnimatePresence>
 
               <form onSubmit={handleSend} className="flex flex-col gap-2">
-                {/* Text input row */}
-                <div className="relative">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={messageText}
-                    onChange={handleInputChange}
-                    placeholder="Type a message..."
-                    className="w-full pl-5 pr-14 py-3.5 bg-secondary/50 border border-border rounded-full text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!messageText.trim() || sendMessage.isPending}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-primary text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-md"
-                  >
-                    {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
-                  </button>
-                </div>
+                {/* Text input row — swaps to recording UI while mic is active */}
+                {isRecording ? (
+                  <div className="flex items-center gap-2 px-4 py-3 bg-secondary/50 border border-red-500/50 rounded-full">
+                    <span className="flex h-2.5 w-2.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-red-500 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                    </span>
+                    <span className="text-sm text-red-400 font-medium tabular-nums flex-1">
+                      Recording {formatRecordingDuration(recordingDuration)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={cancelRecording}
+                      className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                      title="Cancel recording"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopRecording}
+                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors shadow-md"
+                      title="Stop and send"
+                    >
+                      <Square className="w-3.5 h-3.5 fill-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={messageText}
+                      onChange={handleInputChange}
+                      placeholder="Type a message..."
+                      className="w-full pl-5 pr-14 py-3.5 bg-secondary/50 border border-border rounded-full text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!messageText.trim() || sendMessage.isPending}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-primary text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-md"
+                    >
+                      {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+                    </button>
+                  </div>
+                )}
 
                 {/* Media / action icons — wraps on small widths */}
                 <div className="flex flex-wrap items-center gap-1 px-1">
@@ -737,6 +846,17 @@ export default function Home() {
                     title="Share a video link"
                   >
                     <Video className="w-5 h-5" />
+                  </button>
+
+                  {/* Microphone button */}
+                  <button
+                    type="button"
+                    disabled={!activeConversationId || isRecording}
+                    onClick={startRecording}
+                    className="p-2 rounded-full text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                    title="Record a voice message"
+                  >
+                    <Mic className="w-5 h-5" />
                   </button>
                 </div>
               </form>
