@@ -22,6 +22,15 @@ import { cn } from "@/lib/utils";
 
 const GIF_URL_PATTERN = /^https:\/\/media\d*\.giphy\.com\//;
 
+// Matches strings that contain only emoji characters (and whitespace between them)
+function isEmojiOnly(str: string): boolean {
+  const trimmed = str.trim();
+  if (!trimmed) return false;
+  // Strip ZWJ, variation selectors, combining enclosing keycap, skin tone modifiers
+  const stripped = trimmed.replace(/[\u200D\uFE0F\u20E3\u{1F3FB}-\u{1F3FF}]/gu, "");
+  return /^[\p{Extended_Pictographic}\s]+$/u.test(stripped);
+}
+
 function formatMessageTime(dateStr: string) {
   const date = new Date(dateStr);
   if (isToday(date)) return format(date, "h:mm a");
@@ -391,6 +400,10 @@ export default function Home() {
                                 className="max-w-[220px] w-full object-cover block"
                                 loading="lazy"
                               />
+                            </div>
+                          ) : isEmojiOnly(msg.content) ? (
+                            <div className="text-[2em] leading-tight select-text px-1">
+                              {msg.content}
                             </div>
                           ) : (
                             <div
