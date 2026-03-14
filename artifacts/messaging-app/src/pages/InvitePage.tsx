@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -26,9 +26,14 @@ export default function InvitePage() {
   const [, navigate] = useLocation();
   const params = new URLSearchParams(window.location.search);
   const from = params.get("from");
-  const { signup, isSigningUp } = useAuth();
+  const { signup, isSigningUp, isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [showLogin, setShowLogin] = useState(false);
+
+  // Redirect to the app as soon as auth succeeds (signup or login)
+  useEffect(() => {
+    if (isAuthenticated) navigate("/");
+  }, [isAuthenticated, navigate]);
 
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),

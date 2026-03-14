@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
+import { useLocation } from "wouter";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -23,7 +24,14 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(
     !new URLSearchParams(window.location.search).get("signup")
   );
-  const { login, signup, isLoggingIn, isSigningUp } = useAuth();
+  const { login, signup, isLoggingIn, isSigningUp, isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
+
+  // When used as a standalone /login route, redirect home after auth succeeds
+  useEffect(() => {
+    if (isAuthenticated) navigate("/");
+  }, [isAuthenticated, navigate]);
+
   const [error, setError] = useState<string | null>(null);
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
