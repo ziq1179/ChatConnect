@@ -43,6 +43,12 @@ async function buildAll() {
   const distDir = path.resolve(__dirname, "dist");
   await rm(distDir, { recursive: true, force: true });
 
+  console.log("pushing database schema...");
+  execSync("pnpm --filter @workspace/db run push-force", {
+    cwd: path.resolve(__dirname, "..", ".."),
+    stdio: "inherit",
+  });
+
   console.log("building frontend...");
   const frontendDir = path.resolve(__dirname, "..", "messaging-app");
   execSync("pnpm --filter @workspace/messaging-app run build", {
