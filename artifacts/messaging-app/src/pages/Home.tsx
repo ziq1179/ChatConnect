@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotifications } from "@/hooks/use-notifications";
 import { 
@@ -24,6 +24,7 @@ import { GroupEditDialog } from "@/components/GroupEditDialog";
 import { cn } from "@/lib/utils";
 
 import { compressImage } from "@/lib/compress-image";
+import { usePresence } from "@/hooks/use-presence";
 
 const GIF_URL_PATTERN = /^https:\/\/(media\d*\.giphy\.com|media\.tenor\.com)\//;
 const IMAGE_DATA_URL_PATTERN = /^data:image\//;
@@ -255,6 +256,27 @@ export default function Home() {
     return others[0].avatarUrl ?? null;
   };
 
+  // Collect all other-participant IDs to watch for online status
+  const watchIds = useMemo(() => {
+    if (!conversations) return [];
+    const ids = new Set<string>();
+    for (const conv of conversations) {
+      for (const p of conv.participants) {
+        if (p.userId !== user?.id) ids.add(p.userId);
+      }
+    }
+    return Array.from(ids);
+  }, [conversations, user?.id]);
+
+  const onlineIds = usePresence(watchIds);
+
+  // For a DM conversation: returns whether the other person is online
+  const isDMOnline = (conv: any): boolean => {
+    const others = conv.participants.filter((p: any) => p.userId !== user?.id);
+    if (others.length !== 1) return false;
+    return onlineIds.has(others[0].userId);
+  };
+
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">
       {/* Sidebar — on mobile: occupies full screen and toggles with the chat area.
@@ -335,7 +357,7 @@ export default function Home() {
                     isActive ? "bg-primary/10 text-foreground" : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Avatar name={name} src={getConversationAvatar(conv)} />
+                  <Avatar name={name} src={getConversationAvatar(conv)} online={isDMOnline(conv)} />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-0.5">
                       <div className={cn(
@@ -407,10 +429,16 @@ export default function Home() {
                     name={getConversationName(activeConversation)}
                     src={getConversationAvatar(activeConversation)}
                     size="md"
+                    online={isDMOnline(activeConversation)}
                     onClick={() => { const s = getConversationAvatar(activeConversation); if (s) setLightboxSrc(s); }}
                   />
-                  <div className="font-display font-semibold text-foreground truncate">
-                    {getConversationName(activeConversation)}
+                  <div className="flex flex-col min-w-0">
+                    <div className="font-display font-semibold text-foreground truncate leading-tight">
+                      {getConversationName(activeConversation)}
+                    </div>
+                    {isDMOnline(activeConversation) && (
+                      <span className="text-xs text-emerald-500 font-medium leading-tight">Online</span>
+                    )}
                   </div>
                   {/* Edit button — only for groups (conversations with a name) */}
                   {activeConversation.name && (
