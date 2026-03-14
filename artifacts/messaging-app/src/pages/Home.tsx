@@ -305,7 +305,7 @@ export default function Home() {
               </button>
               {activeConversation && (
                 <div className="flex items-center gap-3">
-                  <Avatar name={getConversationName(activeConversation)} src={getConversationAvatar(activeConversation)} size="sm" />
+                  <Avatar name={getConversationName(activeConversation)} src={getConversationAvatar(activeConversation)} size="md" />
                   <div className="font-display font-semibold text-foreground">
                     {getConversationName(activeConversation)}
                   </div>
