@@ -41,7 +41,7 @@ app.use(
 app.use(authMiddleware);
 app.use("/api", router);
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production" && !process.env.VERCEL) {
   // process.argv[1] = path to running script (e.g. dist/index.cjs)
   // works in both ESM and esbuild-bundled CJS without import.meta.url
   const scriptDir = path.dirname(process.argv[1]);
