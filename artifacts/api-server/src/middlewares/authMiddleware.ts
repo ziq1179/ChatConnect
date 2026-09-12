@@ -22,9 +22,7 @@ declare module "express-session" {
 }
 
 export async function authMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
-  req.isAuthenticated = function () {
-    return !!this.user;
-  };
+  req.isAuthenticated = (() => !!req.user) as Request["isAuthenticated"];
 
   const userId = req.session?.userId;
   if (userId) {
